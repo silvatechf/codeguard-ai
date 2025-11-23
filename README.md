@@ -15,6 +15,7 @@ Unlike traditional regex-based scanners (SAST), CodeGuard understands the intent
 False Positive Reduction: Distinguishes between a variable named password and an actual hardcoded credential.
 
 Multi-Language Support: Analyzes Java, Python, Node.js, Terraform, and more.
+![Print screen init (screen init)](assets/Screenshot2.png)
 
 🇪🇺 GDPR & Privacy Specialist
 
@@ -25,6 +26,7 @@ Data Minimization: Detects unnecessary logging of PII (User IDs, Emails, NIFs et
 Data Sovereignty: Flags cloud configurations (AWS/Azure) that export data outside the EU.
 
 ✨ Magic Fix (Auto-Remediation)
+![Print screen init (screen init)](assets/Screenshot3.png)
 
 Don't just find the bug—fix it.
 
