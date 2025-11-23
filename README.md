@@ -4,6 +4,8 @@
 
 CodeGuard AI is an enterprise-grade security tool designed to detect GDPR violations, Cloud Security risks, and PII leaks directly in the source code. Powered by Google's Gemini 2.0 Flash LLM, it acts as a Senior Security Auditor, providing context-aware analysis and auto-remediation code fixes.
 
+![Print screen init (screen init)](assets/screenshot1.png)
+
 🚀 Key Features
 
 🧠 Context-Aware AI Analysis
