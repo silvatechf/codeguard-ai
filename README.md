@@ -30,7 +30,7 @@ One-Click Fix: Generates secure, refactored code snippets ready to copy-paste.
 
 Educational Feedback: Explains why the code was insecure.
 
-📊 Executive Dashboard
+Executive Dashboard
 
 Security Score: Real-time calculation of risk metrics based on AI findings.
 
@@ -38,7 +38,7 @@ Responsive Design: Enterprise-grade UI fully functional on Mobile and Desktop.
 
 Multi-Language Report: Generates audits in English, Portuguese, Spanish, French, Italian, and German.
 
-🏗️ System Architecture
+System Architecture
 
 The project follows a distributed Microservices Architecture to ensure scalability and separation of concerns.
 
@@ -47,24 +47,8 @@ graph LR
     Front -- REST API --> Back[Java Spring Boot]
     Back -- Internal API --> Engine[Python AI Engine]
     Engine -- Secure Request --> Gemini[Google Gemini 2.0]
-    
-    subgraph "Docker Container Network"
-    Front
-    Back
-    Engine
-    end
 
-
-Frontend (Angular 17 + Tailwind):
-
-Responsive "Snyk-like" Dashboard with Sidebar and Dark Mode Editor.
-
-Real-time metrics calculation logic.
-
-Dual-view (Report vs. Fixed Code).
-
-Backend (Java 17 Spring Boot):
-
+   
 Orchestration: Manages requests between Client and AI.
 
 Smart Caching: Implements in-memory hashing to cache analysis results (reducing AI costs and latency to 0ms for repeated scans).
@@ -79,77 +63,25 @@ Resilience: Handles Rate Limits (429) and API failures gracefully.
 
 Universal Scanner: Language-agnostic analysis logic.
 
-🛠️ Tech Stack
-
-Component
-
-Technology
-
-Highlights
+Techs
 
 Frontend
-
 Angular 17, TypeScript
-
 Tailwind CSS (CDN), ngx-markdown, Responsive Layout
-
 Backend
-
 Java 17, Spring Boot 3
-
 WebFlux, Maven, ConcurrentHashMap Cache
-
 AI Engine
-
 Python 3.10
-
 Flask, Google GenAI SDK, Dotenv
 
-Infra
 
-Docker
-
-Docker Compose, Multi-stage Builds
-
-⚡ Getting Started
-
-Prerequisites
-
-Docker Desktop (Recommended)
-
-Google Gemini API Key (Get one at Google AI Studio)
-
-🐳 Option 1: Run with Docker (One-Command Setup)
 
 Clone the repository:
 
 git clone [https://github.com/silvatechf/codeguard-ai.git](https://github.com/silvatechf/codeguard-ai.git)
 cd codeguard-ai
 
-
-Configure API Key:
-Create a .env file in the root directory:
-
-GOOGLE_API_KEY=your_gemini_api_key_here
-
-
-Launch the System:
-
-docker-compose up --build
-
-
-Access the Dashboard:
-Open http://localhost in your browser.
-
-💻 Option 2: Manual Run (Dev Mode)
-
-If you want to edit the code locally without Docker:
-
-Start AI Engine: cd gdpr-agent-ai-engine && python agent_api.py
-
-Start Backend: cd gdpr-agent-backend && ./mvnw spring-boot:run
-
-Start Frontend: cd gdpr-agent-frontend && ng serve (Access at http://localhost:4200)
 
 📸 Screenshots
 
