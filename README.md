@@ -1,4 +1,4 @@
-🛡️ CodeGuard AI - Intelligent Security Auditor
+# 🛡️ CodeGuard AI - Intelligent Security Auditor
 
 "Automating Compliance & Security for Modern DevSecOps Pipelines"
 
@@ -87,9 +87,6 @@ git clone [https://github.com/silvatechf/codeguard-ai.git](https://github.com/si
 cd codeguard-ai
 
 
-📸 Screenshots
-
-(Add your screenshots here in the repository assets folder)
 
 "The dashboard provides a clear, actionable report for non-technical auditors, bridging the gap between Legal (DPO) and Engineering."
 
@@ -107,5 +104,7 @@ Secure Transport: All internal communication is designed to run within a private
 
 Fernando Silva
 Software Engineer | Java & Angular Specialist | AI Enthusiast
+
+LINKEDIN https://www.linkedin.com/in/fernando-silva-83b155a4/
 
 © 2025 CodeGuard AI. All rights reserved.
