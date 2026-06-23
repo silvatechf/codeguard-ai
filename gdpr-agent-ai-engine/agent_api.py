@@ -6,7 +6,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 import google.generativeai as genai
-# Importando as exceções de API mais comuns
 from google.api_core.exceptions import ResourceExhausted, GoogleAPICallError
 
 # Configuração de Logs
@@ -27,7 +26,6 @@ else:
     logger.info("✅ API Key loaded.")
 
 def extract_json(text):
-# ... (Função extract_json é mantida igual)
     """Extrai JSON de forma robusta, ignorando formatações extras da IA"""
     try:
         # Tenta limpar blocos de markdown comuns
@@ -35,7 +33,6 @@ def extract_json(text):
         return json.loads(clean)
     except:
         try:
-            # Procura pelo primeiro '{' e o último '}'
             match = re.search(r'\{.*\}', text, re.DOTALL)
             if match: return json.loads(match.group())
         except: pass
@@ -44,7 +41,6 @@ def extract_json(text):
 
 @app.route('/analyze/code', methods=['POST'])
 def analyze_code():
-    # Primeira verificação: se a chave da API falhou ao carregar
     if not api_key:
         return jsonify({"status": "error", "summary": "API Key não configurada no servidor."}), 500
 
@@ -53,7 +49,7 @@ def analyze_code():
         java_code = data.get('javaCode', '')
         language = data.get('language', 'en')
         
-        # Mapeamento de idiomas
+
         lang_map = {
             'pt': 'Portuguese (Brasil)',
             'es': 'Spanish',
@@ -66,7 +62,7 @@ def analyze_code():
 
         logger.info(f"Analyzing code request. Lang: {selected_lang}")
 
-        # Prompt Otimizado para JSON
+
         prompt = f"""
         Act as a Senior Security Auditor. Analyze this code:
         {java_code}
@@ -78,8 +74,6 @@ def analyze_code():
         - "risk_level": String ("LOW", "MEDIUM", "HIGH", "CRITICAL").
         """
 
-        # CORREÇÃO CRÍTICA: Trocando o nome do modelo para um suportado e atual
-        # gemini-2.5-flash é a versão estável mais recente do modelo Flash
         model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(prompt)
         
