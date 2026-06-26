@@ -1,0 +1,2723 @@
+=== CODEGUARD AI - FULL PROJECT ARCHITECTURE ===
+
+--- START OF FILE: get_context.py ---
+import os
+
+# Define the project root and files to ignore
+PROJECT_ROOT = os.getcwd()
+IGNORE_DIRS = {'.git', 'node_modules', 'venv', '__pycache__', '.angular', 'target'}
+IGNORE_FILES = {'package-lock.json', '.DS_Store', 'pom.xml', 'build.gradle'}
+OUTPUT_FILE = 'project_context_for_ai.txt'
+
+def generate_context():
+    with open(OUTPUT_FILE, 'w', encoding='utf-8') as outfile:
+        outfile.write("=== CODEGUARD AI - FULL PROJECT ARCHITECTURE ===\n\n")
+        
+        for root, dirs, files in os.walk(PROJECT_ROOT):
+            # Filter directories in-place to prevent walking into ignored paths
+            dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+            
+            for file in files:
+                if file in IGNORE_FILES:
+                    continue
+                    
+                file_path = os.path.join(root, file)
+                relative_path = os.path.relpath(file_path, PROJECT_ROOT)
+                
+                # Only read standard text/code files
+                if file.endswith(('.ts', '.html', '.css', '.py', '.java', '.json', '.md', '.txt')):
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as infile:
+                            outfile.write(f"--- START OF FILE: {relative_path} ---\n")
+                            outfile.write(infile.read())
+                            outfile.write(f"\n--- END OF FILE: {relative_path} ---\n\n")
+                    except Exception as e:
+                        outfile.write(f"[ERROR READING FILE {relative_path}: {str(e)}]\n\n")
+
+    print(f"Success! All code context saved to: {OUTPUT_FILE}")
+
+if __name__ == "__main__":
+    generate_context()
+--- END OF FILE: get_context.py ---
+
+--- START OF FILE: project_context_for_ai.txt ---
+
+--- END OF FILE: project_context_for_ai.txt ---
+
+--- START OF FILE: README.md ---
+🛡️ CodeGuard AI - Intelligent Security Auditor
+
+"Automating Compliance & Security for Modern DevSecOps Pipelines"
+
+CodeGuard AI is an enterprise-grade security tool designed to detect GDPR violations, Cloud Security risks, and PII leaks directly in the source code. Powered by Google's Gemini 2.0 Flash LLM, it acts as a Senior Security Auditor, providing context-aware analysis and auto-remediation code fixes.
+
+🚀 Key Features
+
+🧠 Context-Aware AI Analysis
+
+Unlike traditional regex-based scanners (SAST), CodeGuard understands the intent of the code.
+
+False Positive Reduction: Distinguishes between a variable named password and an actual hardcoded credential.
+
+Multi-Language Support: Analyzes Java, Python, Node.js, Terraform, and more.
+
+🇪🇺 GDPR & Privacy Specialist
+
+Specifically trained to detect violations of EU General Data Protection Regulation:
+
+Data Minimization: Detects unnecessary logging of PII (User IDs, Emails, NIFs etc).
+
+Data Sovereignty: Flags cloud configurations (AWS/Azure) that export data outside the EU.
+
+✨ Magic Fix (Auto-Remediation)
+
+Don't just find the bug—fix it.
+
+One-Click Fix: Generates secure, refactored code snippets ready to copy-paste.
+
+Educational Feedback: Explains why the code was insecure.
+
+Executive Dashboard
+
+Security Score: Real-time calculation of risk metrics based on AI findings.
+
+Responsive Design: Enterprise-grade UI fully functional on Mobile and Desktop.
+
+Multi-Language Report: Generates audits in English, Portuguese, Spanish, French, Italian, and German.
+
+System Architecture
+
+The project follows a distributed Microservices Architecture to ensure scalability and separation of concerns.
+
+graph LR
+    User[User / CI-CD] -- HTTP --> Front[Angular Frontend]
+    Front -- REST API --> Back[Java Spring Boot]
+    Back -- Internal API --> Engine[Python AI Engine]
+    Engine -- Secure Request --> Gemini[Google Gemini 2.0]
+
+   
+Orchestration: Manages requests between Client and AI.
+
+Smart Caching: Implements in-memory hashing to cache analysis results (reducing AI costs and latency to 0ms for repeated scans).
+
+Resilience: WebFlux WebClient with timeouts and error handling.
+
+AI Engine (Python Flask):
+
+Prompt Engineering: Specialized personas for Security Auditing using Gemini 2.0.
+
+Resilience: Handles Rate Limits (429) and API failures gracefully.
+
+Universal Scanner: Language-agnostic analysis logic.
+
+Techs
+
+Frontend
+Angular 17, TypeScript
+Tailwind CSS (CDN), ngx-markdown, Responsive Layout
+Backend
+Java 17, Spring Boot 3
+WebFlux, Maven, ConcurrentHashMap Cache
+AI Engine
+Python 3.10
+Flask, Google GenAI SDK, Dotenv
+
+
+
+Clone the repository:
+
+git clone [https://github.com/silvatechf/codeguard-ai.git](https://github.com/silvatechf/codeguard-ai.git)
+cd codeguard-ai
+
+
+📸 Screenshots
+
+(Add your screenshots here in the repository assets folder)
+
+"The dashboard provides a clear, actionable report for non-technical auditors, bridging the gap between Legal (DPO) and Engineering."
+
+🛡️ Security & Privacy
+
+This tool follows Privacy by Design principles:
+
+Stateless Analysis: Source code is processed in-memory and discarded immediately after analysis.
+
+No PII Storage: We do not store user data, only the analysis metadata.
+
+Secure Transport: All internal communication is designed to run within a private Docker network.
+
+👤 Author
+
+Fernando Silva
+Software Engineer | Java & Angular Specialist | AI Enthusiast
+
+© 2025 CodeGuard AI. All rights reserved.
+
+--- END OF FILE: README.md ---
+
+--- START OF FILE: cli-scanner\scanner.py ---
+import os
+import requests
+import json
+from pathlib import Path
+
+# --- CONFIGURATION ---
+API_URL = "http://localhost:8080/api/v1/analysis/submit"
+# Scan the parent directory (project root)
+TARGET_DIRECTORY = "../" 
+# File extensions to analyze
+EXTENSIONS_TO_SCAN = {'.java', '.js', '.py', '.ts', '.tf'}
+# Directories to ignore (performance & noise reduction)
+IGNORE_DIRS = {'node_modules', '.git', 'target', 'dist', 'venv', '__pycache__', '.angular', '.vscode', '.idea'}
+
+def scan_directory(path):
+    """
+    Walks through the directory tree and triggers analysis for supported files.
+    """
+    abs_path = os.path.abspath(path)
+    print(f"🛡️  Starting Security Scan at: {abs_path}\n")
+    
+    files_found = 0
+    
+    # Walk through all subdirectories
+    for root, dirs, files in os.walk(path):
+        # Modify 'dirs' in-place to skip ignored directories
+        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+
+        for file in files:
+            file_extension = Path(file).suffix
+            
+            if file_extension in EXTENSIONS_TO_SCAN:
+                file_path = os.path.join(root, file)
+                # Calls the analysis function for each file
+                analyze_file(file_path)
+                files_found += 1
+
+    print(f"\n✅ Scan Complete!")
+    print(f"📂 Total files analyzed: {files_found}")
+
+def analyze_file(file_path):
+    """
+    Reads a file and sends it to the GDPR Agent API.
+    """
+    print(f"🔍 Scanning: {file_path} ...", end=" ", flush=True)
+    
+    try:
+        # Attempt to read file with utf-8 encoding
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            code_content = f.read()
+
+        # Skip empty files
+        if not code_content.strip():
+            print("⏩ (Skipped - Empty)")
+            return
+
+        # Payload for the Java Backend
+        payload = {
+            "javaCode": code_content,
+            "language": "en" # Default report language: English
+        }
+        
+        # Send POST request
+        try:
+            response = requests.post(API_URL, json=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('success'):
+                    print("✅ SAFE / REVIEWED")
+                    save_report(file_path, result.get('message'))
+                else:
+                    print(f"❌ FAILURE: {result.get('message')}")
+            else:
+                print(f"❌ HTTP ERROR {response.status_code}")
+                
+        except requests.exceptions.ConnectionError:
+            print("❌ CONNECTION ERROR (Is Backend running on port 8080?)")
+
+    except Exception as e:
+        print(f"⚠️ Read Error: {e}")
+
+def save_report(file_path, report_content):
+    """
+    Saves the AI analysis report to a markdown file.
+    """
+    output_dir = "audit_reports" # Folder name in English
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Create a safe filename replacing slashes/dots
+    safe_filename = os.path.basename(file_path).replace('.', '_') + "_report.md"
+    save_path = os.path.join(output_dir, safe_filename)
+    
+    try:
+        with open(save_path, "w", encoding="utf-8") as f:
+            f.write(f"# 🛡️ Security Audit Report: {file_path}\n\n")
+            f.write(report_content)
+    except Exception as e:
+        print(f"Error saving report: {e}")
+
+# Entry point (Must be at the bottom)
+if __name__ == "__main__":
+    scan_directory(TARGET_DIRECTORY)
+--- END OF FILE: cli-scanner\scanner.py ---
+
+--- START OF FILE: cli-scanner\audit_reports\agent-dashboard_component_ts_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-frontend\src\app\agent-dashboard\agent-dashboard.component.ts
+
+## Security & GDPR Audit Report
+
+This report summarizes potential security and GDPR violations found in the provided Angular component code. The focus is on identifying risks related to cloud security (specifically AWS credentials), GDPR compliance (logging PII, data leaks), and general code security.
+
+### Overview
+
+The code represents an Angular component (`AgentDashboardComponent`) that allows users to analyze code snippets. It includes functionality to select example code, analyze it using an external service, and display the analysis results.
+
+### Identified Risks:
+
+1.  **Hardcoded AWS Credentials (Example Code):**
+    *   **Location:** The `fillExampleCode` function includes a hardcoded AWS access key (`AKIA1234567890EXAMPLE`) within a Java Spring Boot example.
+    *   **Risk:** This is a critical security vulnerability.  Hardcoding credentials exposes the AWS account to unauthorized access and potential data breaches.  If this key were active, malicious actors could gain control over AWS resources, leading to significant financial and reputational damage. This violates security best practices.
+    *   **GDPR Impact:** Indirect. While not directly a GDPR violation, a compromised AWS account could lead to unauthorized access to personal data stored within AWS services, which would then trigger GDPR violations.
+
+2.  **PII Logging (Example Code):**
+    *   **Location:** The `fillExampleCode` function includes a Java Spring Boot example that logs user IDs directly to the console.
+    *   **Risk:** Logging Personally Identifiable Information (PII) like user IDs violates GDPR principles.  Logs are often stored insecurely and can be accessed by unauthorized personnel. This data could be used for malicious purposes, such as identity theft or targeted attacks.
+    *   **GDPR Impact:** Direct violation of GDPR principles related to data minimization and secure processing of personal data (Article 5 and Article 32).
+
+3.  **Potential S3 Data Leak (Example Code):**
+    *   **Location:** The `fillExampleCode` function contains a Python example that uploads a CSV file containing EU customer data to a public S3 bucket.
+    *   **Risk:** Uploading data containing EU customer information to a publicly accessible S3 bucket constitutes a significant GDPR violation.  Anyone could access this data, leading to a data breach and potential harm to data subjects.
+    *   **GDPR Impact:** Direct violation of GDPR, specifically Article 32 regarding security of processing and Article 5 regarding data security. This also relates to Article 44 about transfers outside of the EU.
+
+4.  **SQL Injection Vulnerability (Example Code):**
+    *   **Location:** The `fillExampleCode` function contains a Node.js example vulnerable to SQL injection.
+    *   **Risk:** The code constructs an SQL query by directly concatenating user-provided input (email) without proper sanitization or parameterization. This allows attackers to inject malicious SQL code, potentially gaining unauthorized access to the database, modifying data, or even executing arbitrary commands on the server.
+    *   **GDPR Impact:** Indirect.  Successful SQL injection can lead to a data breach involving PII, resulting in GDPR violations.
+
+### Recommendations:
+
+*   **Never Hardcode Credentials:**  Replace hardcoded AWS credentials with secure alternatives, such as environment variables, IAM roles, or credential management systems (e.g., AWS Secrets Manager, HashiCorp Vault). Ideally, the application should assume an IAM role.
+*   **Avoid Logging PII:**  Refrain from logging PII directly. If logging is necessary, use anonymization or pseudonymization techniques.  Implement proper access controls and retention policies for logs.
+*   **Secure S3 Bucket Permissions:** Ensure that S3 buckets containing sensitive data are not publicly accessible.  Use appropriate IAM policies to restrict access to authorized users and services only. Avoid storing sensitive data in S3.
+*   **Prevent SQL Injection:** Always use parameterized queries or prepared statements to prevent SQL injection vulnerabilities.  Sanitize user input to remove potentially harmful characters.
+*   **Implement Data Minimization:** Only collect and process the minimum amount of personal data necessary for the specified purpose.
+*   **Regular Security Audits:** Conduct regular security audits and penetration testing to identify and address potential vulnerabilities.
+*   **GDPR Training:** Provide regular GDPR training to developers and other personnel handling personal data.
+
+### Additional Considerations:
+
+*   The component itself seems to rely on a backend analysis service. Ensure that the communication between the frontend and backend is secure (e.g., using HTTPS).
+*   Review the `AnalysisService` to ensure it implements appropriate security measures and data protection mechanisms.
+*   Consider adding input validation to the component to prevent users from submitting malicious code for analysis.
+
+This report provides a high-level overview of the identified risks and recommendations. A more detailed analysis may be required to fully assess the security posture of the application.
+--- END OF FILE: cli-scanner\audit_reports\agent-dashboard_component_ts_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\agent_api_py_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-ai-engine\agent_api.py
+
+### Security Audit Report
+
+The provided Java code snippet lacks context, making a comprehensive security audit challenging. However, several potential GDPR and cloud security risks can be identified based on common vulnerabilities.
+
+1.  **Data Handling and Storage:**
+
+*   **GDPR Compliance:** Without knowing what kind of data this code handles, it's hard to ensure compliance. If it processes Personally Identifiable Information (PII), the code must adhere to GDPR principles:
+    *   **Lawfulness, Fairness, and Transparency:** The code should clearly document how PII is collected, processed, and stored.
+    *   **Purpose Limitation:** Data should only be processed for specified, explicit, and legitimate purposes.
+    *   **Data Minimization:** Only necessary data should be processed.
+    *   **Accuracy:** Measures to ensure data accuracy must be implemented.
+    *   **Storage Limitation:** PII should not be stored longer than necessary.
+    *   **Integrity and Confidentiality:** Appropriate security measures should be in place to protect PII.
+*   **Cloud Storage:**  If the code interacts with cloud storage, ensure:
+    *   **Encryption:** Data at rest and in transit should be encrypted using strong encryption algorithms.
+    *   **Access Control:** Strict access control mechanisms should be implemented, following the principle of least privilege.
+    *   **Data Residency:** Consider data residency requirements based on GDPR.  Ensure data is stored in regions compliant with GDPR.
+
+2.  **Input Validation:**
+
+*   The code doesn't show any input validation. Failing to validate inputs can lead to various vulnerabilities, including:
+    *   **SQL Injection:** If this code interacts with a database, ensure proper parameterization or use of an ORM to prevent SQL injection attacks.
+    *   **Cross-Site Scripting (XSS):** If this code generates web content, ensure proper output encoding to prevent XSS attacks.
+    *   **Command Injection:** If the code executes system commands based on user input, ensure thorough sanitization to prevent command injection attacks.
+
+3.  **Authentication and Authorization:**
+
+*   **Authentication:**  Ensure robust authentication mechanisms are used to verify the identity of users or applications.
+*   **Authorization:** Implement proper authorization controls to restrict access to sensitive resources and functionalities based on user roles or permissions.
+
+4.  **Logging and Monitoring:**
+
+*   Implement comprehensive logging to track security-related events, such as authentication attempts, access to sensitive data, and configuration changes.
+*   Set up monitoring systems to detect and respond to suspicious activities or security incidents.
+
+5.  **Dependency Management:**
+
+*   Ensure all external libraries and dependencies are up-to-date and free from known vulnerabilities.
+*   Use a dependency management tool to track and manage dependencies effectively.
+
+6.  **Error Handling:**
+
+*   Implement robust error handling to prevent sensitive information from being exposed in error messages.
+*   Avoid displaying stack traces or internal system details to end-users.
+
+7.  **Secrets Management:**
+
+*   Avoid hardcoding sensitive information, such as API keys, passwords, and database credentials, directly in the code.
+*   Use secure secrets management solutions, such as environment variables or dedicated secrets management tools, to store and manage sensitive data.
+
+8.  **Cloud Configuration:**
+
+*   Ensure proper configuration of cloud resources to minimize the attack surface and prevent unauthorized access.
+*   Follow security best practices for configuring cloud services, such as IAM roles, security groups, and network policies.
+
+### Recommendations
+
+*   **Code Review:**  Conduct a thorough code review by security experts to identify and address potential vulnerabilities.
+*   **Penetration Testing:** Perform penetration testing to simulate real-world attacks and assess the effectiveness of security controls.
+*   **Security Training:** Provide security training to developers and operations staff to raise awareness of security risks and best practices.
+*   **Compliance Audits:**  Conduct regular compliance audits to ensure adherence to GDPR and other relevant security regulations.
+
+### Disclaimer
+
+This report is based on the limited information provided and should not be considered a comprehensive security assessment. A full security audit would require a thorough examination of the codebase, infrastructure, and deployment environment.
+--- END OF FILE: cli-scanner\audit_reports\agent_api_py_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\AnalysisController_java_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\controller\AnalysisController.java
+
+Okay, here's a GDPR and Cloud Security audit report for the provided Java code.
+
+**1. 🛡️ GDPR Violations**
+
+*   **Potential PII Exposure Through Code Analysis:** The code analysis process itself, driven by the `AnalysisService`, might process code that contains Personally Identifiable Information (PII). If the analyzed code includes sensitive data like names, addresses, email addresses, credit card numbers, etc., and this data is processed, stored, or transmitted without proper consent, security measures, and data minimization principles, it violates GDPR. This is a risk even if the primary goal isn't to directly extract PII, but rather to analyze the code for vulnerabilities.
+
+*   **Lack of Clarity on Data Processing Purposes:**  The code doesn't explicitly state the purpose of the code analysis. GDPR requires clear and specific purposes for data processing.  If the purpose isn't well-defined, it becomes difficult to justify the collection and processing of potentially sensitive data contained within the code.
+
+*   **Data Minimization Concerns:** The `CodeAnalysisRequest` likely contains the entire source code.  Is it necessary to send the *entire* codebase for the analysis, or could the analysis be tailored to specific sections or files? Sending the entire codebase might violate the principle of data minimization, where only the necessary data should be processed.
+
+*   **Lack of Transparency to Data Subjects:**  Developers whose code is being analyzed are effectively "data subjects." They may not be aware that their code is being analyzed for PII.  GDPR requires transparency regarding data processing activities.
+
+*   **Auditing and Logging Deficiencies:**  The single `System.out.println` statement suggests inadequate logging.  GDPR mandates proper auditing and logging of data processing activities, including who accessed what data, when, and why.  Lack of detailed logging makes it difficult to demonstrate compliance and investigate potential data breaches. Specifically, the code should log the request parameters, time stamps and the analysis result for auditing.
+
+*   **Potential for Cross-Border Data Transfer:** The `AnalysisService` could involve sending data to a third-party service for analysis, potentially located outside the EU. This would necessitate ensuring adequate safeguards are in place to comply with GDPR's transfer restrictions (e.g., Standard Contractual Clauses, Binding Corporate Rules).
+
+**2. ☁️ Cloud Security Risks**
+
+*   **Reliance on `AnalysisService` (Black Box):** The security of the entire system depends heavily on the `AnalysisService`. Without examining the implementation of `AnalysisService` it is impossible to judge it's security risks. The analysis service might expose the system to the following:
+    *   **Injection Vulnerabilities:** If the `AnalysisService` executes external programs or interprets code, it might be vulnerable to injection attacks (e.g., command injection, code injection).
+    *   **Denial of Service (DoS):**  If the `AnalysisService` is resource-intensive or has vulnerabilities, it could be exploited to cause a DoS attack.
+
+*   **Lack of Input Validation:** The `@Valid` annotation on the `CodeAnalysisRequest` ensures basic input validation, but it's crucial to validate the *content* of the code being submitted. Malicious code could be submitted to exploit vulnerabilities in the analysis service or the overall system.
+
+*   **Insufficient Error Handling:** The code doesn't show detailed error handling. If the `AnalysisService` fails, the application should handle the error gracefully and provide informative error messages without exposing sensitive information.
+
+*   **Over-Permissions:** The API endpoint `/api/v1/analysis/submit` is quite broad. Consider implementing Role-Based Access Control (RBAC) to restrict access to this functionality to authorized users only. This prevents unauthorized users from submitting potentially malicious code for analysis.
+
+*   **Missing Rate Limiting:**  The API endpoint is susceptible to abuse if not rate-limited.  An attacker could flood the endpoint with analysis requests, causing a denial-of-service.
+
+*   **No Authentication/Authorization:** The provided code does not include any explicit authentication or authorization checks. This means anyone with access to the network can submit code for analysis, which could lead to abuse or exposure of sensitive data.
+
+**3. ✅ Recommended Fixes**
+
+*   **GDPR Compliance:**
+    *   **Data Processing Agreement:** If using a third-party analysis service, ensure a Data Processing Agreement (DPA) is in place that outlines responsibilities, data security measures, and GDPR compliance.
+    *   **Data Minimization:** Investigate if the entire codebase needs to be sent, or if specific sections are sufficient. Modify the `CodeAnalysisRequest` to allow for more granular selection of code for analysis.
+    *   **Consent and Notification:**  Implement a mechanism to inform developers about the code analysis process and, if necessary, obtain consent for processing their code (especially if it's open-source code).
+    *   **Enhanced Logging:** Implement comprehensive logging to track requests, analysis results, errors, and user activity related to code analysis. Logs should include timestamps, user IDs, request details, and any PII identified (with appropriate masking). Store logs securely and retain them for a defined period in accordance with GDPR requirements.
+    *   **Data Subject Rights:**  Implement mechanisms to address data subject rights, such as the right to access, rectify, erase, restrict processing, and data portability. This would involve allowing developers to access and potentially delete their code analysis results (if applicable).
+    *   **Privacy Impact Assessment (PIA):** Conduct a PIA to assess the risks to individuals' privacy associated with the code analysis process.
+    *   **Pseudonymization/Anonymization:**  Explore pseudonymization or anonymization techniques for any PII detected in the code analysis.
+    *   **Purpose Limitation:** Clearly define and document the specific purpose of the code analysis (e.g., vulnerability detection, compliance checking).
+    *   **EU Data Residency:** Store and process data within the EU, if possible, to minimize cross-border data transfer risks.
+
+*   **Cloud Security:**
+    *   **Secure the `AnalysisService`:** Conduct a thorough security audit and penetration testing of the `AnalysisService`. Implement robust input validation, output encoding, and error handling.  Ensure it is protected against common web application vulnerabilities (OWASP Top 10).
+    *   **Input Validation:** Implement stricter input validation on the `CodeAnalysisRequest` to prevent the submission of malicious code. Use a combination of whitelisting and blacklisting techniques.
+    *   **Error Handling:** Implement comprehensive error handling that masks sensitive information and provides informative error messages to the user. Log detailed error information for debugging purposes.
+    *   **Authentication/Authorization:** Implement robust authentication and authorization mechanisms to control access to the API endpoint. Use a well-established authentication protocol (e.g., OAuth 2.0, OpenID Connect). Implement RBAC to restrict access to authorized users.
+    *   **Rate Limiting:** Implement rate limiting to prevent abuse of the API endpoint.
+    *   **Monitor `AnalysisService` Performance:** Monitor resource usage, response times, and error rates of the `AnalysisService` to detect potential performance issues or attacks.
+    *   **Secure Communication:** Ensure all communication between the controller and the `AnalysisService` is encrypted using TLS/SSL.
+    *   **Regular Security Audits:** Conduct regular security audits of the entire system to identify and address potential vulnerabilities.
+    *   **Dependency Management:**  Keep all dependencies (libraries, frameworks) up-to-date to patch known security vulnerabilities. Use a dependency vulnerability scanner.
+    *   **Secrets Management:** Do NOT store any secrets (API keys, passwords, database credentials) in the code.  Use a secure secrets management solution (e.g., AWS Secrets Manager, Azure Key Vault, HashiCorp Vault).
+
+This report provides a starting point for improving the GDPR compliance and security of the provided code. A complete audit would require a deeper understanding of the `AnalysisService` implementation and the overall system architecture.
+
+--- END OF FILE: cli-scanner\audit_reports\AnalysisController_java_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\AnalysisService_java_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\service\AnalysisService.java
+
+Okay, I will analyze the provided Java code (`AnalysisService.java`) from a GDPR and Cloud Security perspective and provide a structured report.
+
+**1. 🛡️ GDPR Violations (PII exposure, logging, etc.)**
+
+*   **PII Exposure Potential:** The core function of this service, `analyzeCode`, is to analyze code provided in a `CodeAnalysisRequest`.  This analyzed code could potentially *contain* PII (Personally Identifiable Information), even if unintentionally.  Consider a scenario where a developer pastes a code snippet containing sensitive data (e.g., a customer's email address hardcoded for testing purposes) into the analysis request. The Python agent receives this request.
+
+    *   **Problem:** If the Python agent logs the received code or stores the analysis results without proper anonymization or pseudonymization, it could violate GDPR principles regarding the processing of PII. The Java service doesn't appear to have any controls in place to scrub or identify PII *before* sending the code to the Python agent.
+*   **Lack of Data Minimization:** The Java service sends `request.getJavaCode().length()` to build the `CodeAnalysisResponse`, exposing the size of the analyzed code to downstream systems and logs. This could constitute unnecessary data collection.
+*   **Logging:** The `System.out.println` statement used for debugging purposes in the `analyzeCode` method could unintentionally log PII if the `CodeAnalysisRequest` contains it. This is especially problematic if these logs are stored for extended periods without adequate security measures. Similarly, stack traces printed by `e.printStackTrace()` can also expose sensitive information.
+*   **Data Residency:** The code doesn't specify where the Python agent is running or where the analysis results are stored. If the Python agent is located outside the GDPR jurisdiction (European Economic Area), this could raise data transfer compliance concerns.
+*   **Data Security in Transit:** The communication between the Java service and the Python agent (via HTTP) is not encrypted (using HTTPS). This means that if the code being analyzed *does* contain PII, it's vulnerable to interception during transit.
+*   **Data Retention:** The provided code does not address data retention policies for analyzed code, analysis results, or logs.
+
+**2. ☁️ Cloud Security Risks (Hardcoded keys, wrong regions, etc.)**
+
+*   **Hardcoded URL:** The `PYTHON_AGENT_URL = "http://localhost:5000";` is hardcoded. This is problematic for several reasons:
+
+    *   **Scalability/Environment Issues:** It tightly couples the service to a specific environment (localhost). This will prevent to scale in the Cloud. It will be impossible to use Python Service as a external tool.
+    *   **Security:** Using localhost for a production environment exposes a potential security risk because other applications on the same server could potentially access the Python agent's port if not properly secured.
+*   **Lack of Authentication/Authorization:** The Java service makes unauthenticated requests to the Python agent. This means anyone who can access the Java service can trigger code analysis.  There's no mechanism to verify the identity of the Java service calling the Python agent.
+*   **Trust Assumption:** The code implicitly trusts the response from the Python agent.  There's no validation of the `pythonResponse.getStatus()` beyond a simple string comparison to "success".  A malicious or compromised Python agent could return crafted responses.
+*   **Potential for Denial-of-Service (DoS):** Since the `analyzeCode` method uses `block()` to wait for the response from the Python agent, a slow or unresponsive Python agent could tie up threads in the Java service, potentially leading to a DoS.
+*   **Error Handling/Information Disclosure:**  The error messages returned in the `CodeAnalysisResponse` could potentially leak sensitive information about the internal state of the system (e.g., "Erro interno no servidor Java: ..."). More generic and user-friendly error messages should be used for external consumption.
+
+**3. ✅ Recommended Fixes**
+
+*   **PII Sanitization/Detection:**
+    *   Implement a PII detection and redaction mechanism *before* sending the code to the Python agent.  Consider using a library or service that can identify and mask sensitive data like email addresses, credit card numbers, etc.
+    *   If PII is detected and cannot be reliably redacted, consider rejecting the analysis request and informing the user that sensitive data must be removed.
+*   **Data Minimization:**
+    *   Re-evaluate the need to send the code length to the downstream systems. If it's not critical, remove it. If it's needed, implement proper access control to prevent misuse.
+*   **Secure Logging:**
+    *   Implement secure logging practices:
+        *   Use a structured logging framework (e.g., SLF4J, Logback) to facilitate log analysis and filtering.
+        *   Avoid logging PII directly. If logging is absolutely necessary, use pseudonymization or anonymization techniques.
+        *   Securely store and manage log files with appropriate access controls and retention policies.
+        *   Rotate logs regularly and archive them securely.
+    *   Avoid using `System.out.println` for logging. Use a proper logging framework.
+*   **Data Residency:**
+    *   Ensure the Python agent is deployed in a region that complies with GDPR data residency requirements. If data needs to be transferred outside the EEA, implement appropriate safeguards (e.g., Standard Contractual Clauses).
+*   **Encryption in Transit:**
+    *   **Mandatory:** Enable HTTPS for communication between the Java service and the Python agent.  This will encrypt the data being transmitted.  Use TLS certificates and configure the `WebClient` to use HTTPS.
+*   **Data Retention:**
+    *   Define and implement a data retention policy for analyzed code, analysis results, and logs.  Regularly review and update the policy to ensure compliance with GDPR requirements.
+    *   Implement automated mechanisms to purge or anonymize data that is no longer needed.
+*   **Configuration Management:**
+    *   Externalize the `PYTHON_AGENT_URL` using environment variables or a configuration management system (e.g., Spring Cloud Config, HashiCorp Consul).  This allows you to easily change the URL without modifying the code.
+    *   Use a configuration management tool to manage different environments (development, testing, production) and their respective URLs.
+*   **Authentication/Authorization:**
+    *   Implement authentication and authorization mechanisms to secure access to the Python agent.  Consider using API keys, OAuth 2.0, or mutual TLS.
+    *   Verify the identity of the Java service calling the Python agent.
+*   **Input Validation:**
+    *   Validate the format and content of the `CodeAnalysisRequest` before sending it to the Python agent.  This can help prevent injection attacks and other vulnerabilities.
+*   **Response Validation:**
+    *   Thoroughly validate the response from the Python agent.  Don't just check the `status` field; verify the integrity and format of the entire response.
+*   **Asynchronous Communication:**
+    *   Use asynchronous communication (e.g., Spring WebFlux) instead of `block()` to avoid tying up threads in the Java service.  This will improve the scalability and responsiveness of the service.
+*   **Error Handling:**
+    *   Implement robust error handling and logging.  Use try-catch blocks to handle exceptions gracefully and log detailed error messages (without exposing sensitive information).
+    *   Return generic and user-friendly error messages to the client.
+    *   Implement circuit breaker patterns to protect the Java service from failures in the Python agent.
+*   **Security Audits and Penetration Testing:**
+    *   Conduct regular security audits and penetration testing to identify and address potential vulnerabilities.
+*   **Least Privilege:**
+    *   Ensure that the Java service and Python agent are running with the least privileges necessary to perform their functions.  Avoid using root or administrator accounts.
+*   **Dependency Management:**
+    *   Use a dependency management tool (e.g., Maven, Gradle) to manage the dependencies of the Java service.  Keep dependencies up to date to patch security vulnerabilities. Regularly audit dependencies for known vulnerabilities.
+*   **Consider using secure coding practices:** Adhere to secure coding principles to prevent common vulnerabilities such as SQL injection, cross-site scripting (XSS), and buffer overflows.
+
+By implementing these recommendations, you can significantly improve the GDPR compliance and security posture of your code analysis service.
+
+--- END OF FILE: cli-scanner\audit_reports\AnalysisService_java_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\analysis_service_ts_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-frontend\src\app\analysis\analysis.service.ts
+
+## Security Audit Report
+
+This report analyzes the Angular service code provided for potential GDPR and cloud security risks.
+
+### Overview
+
+The code defines an Angular service, `AnalysisService`, responsible for sending Java code snippets to a Spring Boot backend for analysis. The backend then forwards this code to a Python AI engine (as described in the comments). The service exposes a single method, `analyzeCode`, which makes an HTTP POST request to the backend API.
+
+### GDPR Concerns
+
+1.  **Data Minimization and Purpose Limitation:**
+    *   The code sends the entire Java code snippet to the backend.  It's crucial to ensure that the backend and the AI engine only process the code for the explicitly stated purpose (analysis) and do not retain or use it for any other reason without explicit consent and justification. The current setup lacks explicit mechanisms to enforce this.
+    *   The `CodeAnalysisRequest` interface only contains the `javaCode`, but there's no indication of what constitutes PII (Personally Identifiable Information) in the Java code. If the submitted Java code accidentally contains PII, there is a GDPR violation.
+
+2.  **Data Security:**
+    *   The code transmits data to `http://localhost:8080/api/v1/analysis/submit`.  Using `http` (instead of `https`) exposes the data in transit to potential eavesdropping, especially if the Angular application is deployed on a public network. **This is a major security risk.**
+    *   There is no mention of encryption, access controls, or audit logging on the backend which is essential to be GDPR compliant. The backend must protect this data.
+
+3. **Right to be forgotten:**
+  * The analysis code sent to the backend might get stored for a long time, violating GDPR rules if the user asks to have this data removed. Implement a system where data gets automatically deleted within a reasonable timeframe.
+
+### Cloud Security Concerns
+
+1.  **Lack of Authentication/Authorization:**
+    *   The Angular service directly sends data to the backend without any authentication or authorization mechanisms. This means anyone with access to the Angular application can potentially submit code for analysis, potentially leading to abuse or denial-of-service attacks.  While the comment mentions the backend will handle security, this is not explicitly enforced in the Angular code.
+
+2.  **Exposure of Internal API Endpoint:**
+    *   The `apiUrl` is hardcoded within the Angular code.  This exposes the internal API endpoint to anyone who can inspect the client-side code.  While obfuscation might offer minimal protection, it's not a robust security measure.  A more secure approach would be to configure this through environment variables or a configuration service.
+
+3.  **Input Validation/Sanitization:**
+    *   The Angular service sends the `javaCode` directly to the backend without any client-side validation or sanitization.  This means the backend is vulnerable to injection attacks or other malicious input.  The backend should perform thorough validation, but client-side validation can reduce the load on the backend and improve the user experience.
+
+### Recommendations
+
+*   **Enforce HTTPS:**  Switch to `https` for all communication with the backend to encrypt data in transit. Obtain an SSL/TLS certificate for your backend server.
+*   **Implement Authentication/Authorization:** Add authentication (e.g., JWT) to ensure only authorized users can access the analysis service. Implement role-based access control (RBAC) to restrict access to sensitive operations.
+*   **Input Validation:** Implement client-side input validation to prevent malicious input from being sent to the backend.
+*   **Secure API Endpoint:** Avoid hardcoding the `apiUrl` in the Angular code. Use environment variables or a configuration service to manage the API endpoint.
+*   **Backend Security Measures:** Ensure the backend implements robust security measures, including input validation, output encoding, data encryption, access controls, and audit logging.
+*   **GDPR Compliance on Backend**: The backend needs to be GDPR compliant to protect the code (possible PII) that is sent to it from this Angular service.
+    *   Data Minimization: Only store necessary data.
+    *   Data Encryption: Use encryption at rest and in transit.
+    *   Access Control: Limit access to the code based on roles.
+    *   Right to be Forgotten: Implement a process for data deletion.
+    *   Data Audit logging: Log all operations on the code data.
+
+
+--- END OF FILE: cli-scanner\audit_reports\analysis_service_ts_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\app_config_ts_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-frontend\src\app\app.config.ts
+
+## Security Audit Report
+
+**Code Snippet Analyzed:**
+
+```typescript
+import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideBrowserGlobalErrorListeners(),
+    provideZoneChangeDetection({ eventCoalescing: true }),
+    
+  ]
+};
+```
+
+**Scope:**
+
+This report analyzes the provided Angular application configuration for potential GDPR and cloud security risks.
+
+**Findings:**
+
+1.  **Lack of Specific Security Headers Configuration:** The provided code snippet lacks configuration for security headers (e.g., Content-Security-Policy, X-Content-Type-Options, Strict-Transport-Security).  These headers are crucial for mitigating various web application attacks, including XSS and clickjacking.
+
+2.  **No Data Encryption in Transit Configuration:**  The code doesn't explicitly enforce HTTPS.  While this might be handled at the cloud infrastructure level (e.g., load balancer), it is crucial to ensure it is enforced end-to-end. The Angular application itself should ideally enforce HTTPS redirects.
+
+3.  **Error Handling:** While `provideBrowserGlobalErrorListeners()` is included, the report lacks context on how errors are reported or logged.  In a GDPR context, excessive error logging can inadvertently expose personally identifiable information (PII).  Consider centralizing and anonymizing error reporting.
+
+4. **Zone Change Detection:** The `provideZoneChangeDetection` is configured with `eventCoalescing: true`. While this improves performance, it doesn't introduce direct security or GDPR risks in itself.
+
+**GDPR Considerations:**
+
+*   **Data Minimization in Error Handling:**  Ensure that error logs do not inadvertently capture PII.  Sanitize or mask any sensitive data before logging.
+*   **Data Encryption:** Verify that all data transmitted between the client and the server is encrypted using HTTPS.  This is critical for protecting PII.
+*   **Transparency:** The application configuration provides no direct mechanisms to facilitate user consent management or data access requests as required by GDPR. This would typically be handled in other parts of the application.
+
+**Cloud Security Considerations:**
+
+*   **Security Headers:**  The absence of security headers makes the application vulnerable to various client-side attacks.
+*   **HTTPS Enforcement:**  Relying solely on cloud infrastructure for HTTPS enforcement might leave gaps. Ensure the application itself redirects to HTTPS.
+
+**Recommendations:**
+
+1.  **Implement Security Headers:** Configure appropriate security headers (Content-Security-Policy, X-Content-Type-Options, Strict-Transport-Security) to mitigate common web application attacks.
+2.  **Enforce HTTPS:** Ensure that the application redirects all traffic to HTTPS.
+3.  **Review Error Handling:**  Implement centralized and anonymized error reporting to avoid logging PII.
+4.  **Consider CSP Configuration:** Specifically, the Content-Security-Policy (CSP) should be strictly configured to allow only necessary resources and prevent the execution of malicious scripts. Using a strict CSP can significantly reduce the risk of XSS attacks.
+5.  **Regularly Review Security Configuration:** As your application evolves, regularly review and update your security configuration to address emerging threats.
+
+--- END OF FILE: cli-scanner\audit_reports\app_config_ts_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\app_module_ts_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-frontend\src\app\app.module.ts
+
+## GDPR & Cloud Security Audit Report
+
+**Module:** `app.module.ts`
+
+**Overview:**
+
+This report outlines potential GDPR and cloud security risks identified in the provided `app.module.ts` file. The module imports necessary Angular components, including `ngx-markdown`, `HttpClientModule`, and `FormsModule`. While the code itself doesn't directly handle sensitive user data or interact directly with cloud services, the imported modules and their configurations necessitate a closer examination from a GDPR and security perspective.
+
+**Identified Risks:**
+
+1.  **`ngx-markdown` Usage:** The `ngx-markdown` module allows rendering Markdown content, potentially sourced from user input or external sources. This introduces a risk of:
+
+    *   **Cross-Site Scripting (XSS):** If the Markdown content isn't properly sanitized, malicious users could inject JavaScript code into the Markdown, which would then be executed in the user's browser. This can lead to data theft, session hijacking, and other malicious activities.
+    *   **Data Leakage:** If the Markdown content inadvertently includes sensitive personal data (e.g., in logs or error messages), this data could be exposed to unauthorized users. Especially if external URLs can be provided within Markdown. This would require a Content Security Policy (CSP) to restrict URL domains and the `safe` pipe to make sure the module is safe. Also make sure that users can not upload malicious files to the server, so that the server can not send them as markdown to be interpreted in the front-end.
+
+2.  **`HttpClientModule` Usage:** The `HttpClientModule` is used for making HTTP requests to external APIs. This poses risks related to:
+
+    *   **Data Transmission Security:** If the HTTP requests are not made over HTTPS, the data transmitted between the application and the API server could be intercepted and read by attackers. This is a GDPR concern if personal data is being transmitted.
+    *   **API Security:** The application's security depends on the security of the APIs it interacts with. Vulnerable APIs could be exploited to gain access to user data or to compromise the application itself.
+    *   **Logging and Monitoring:** Ensure that HTTP requests and responses are properly logged and monitored for security incidents. This can help detect and respond to attacks.
+
+3. **`FormsModule` Usage:** The FormsModule enables two-way data binding, potentially leading to: 
+
+    *   **Data Injection Vulnerabilities**: Ensure proper input validation and sanitization to prevent injection attacks.  Improper validation could allow malicious code or data to be injected into the application, potentially compromising user data or application functionality. 
+
+**Recommendations:**
+
+1.  **Sanitize Markdown Content:** Implement a robust sanitization mechanism for all Markdown content before rendering it using `ngx-markdown`. Use a trusted library (e.g., DOMPurify) to remove any potentially malicious HTML or JavaScript code from the Markdown. Consider using Content Security Policy (CSP) to restrict the sources from which the application can load resources, further mitigating XSS risks. Use the `safe` pipe.
+2.  **Enforce HTTPS:** Always use HTTPS for all HTTP requests made with `HttpClientModule`. Configure the API endpoints to require HTTPS connections.
+3.  **Secure API Interactions:** Ensure that the APIs the application interacts with are secure and follow best practices for authentication, authorization, and data protection. Implement proper error handling and logging to detect and respond to API-related security incidents. Implement Rate Limiting.
+4.  **Input Validation and Sanitization:** Implement strict input validation and sanitization for all user input received through `FormsModule`. Use appropriate validation techniques to ensure that the input conforms to the expected format and data type. Sanitize the input to remove any potentially malicious characters or code.
+5.  **GDPR Compliance:** Ensure that any personal data collected or processed by the application is handled in accordance with GDPR requirements. This includes obtaining user consent, providing data access and deletion rights, and implementing appropriate security measures to protect the data.
+6. **Regular Security Audits and Penetration Testing:** Conduct regular security audits and penetration testing to identify and address any vulnerabilities in the application.
+
+**Conclusion:**
+
+While the `app.module.ts` file itself doesn't directly pose significant GDPR or cloud security risks, the imported modules (`ngx-markdown`, `HttpClientModule`, and `FormsModule`) introduce potential vulnerabilities that need to be addressed. Implementing the recommendations in this report will help mitigate these risks and ensure the application is secure and GDPR-compliant.
+--- END OF FILE: cli-scanner\audit_reports\app_module_ts_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\app_spec_ts_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-frontend\src\app\app.spec.ts
+
+## GDPR & Cloud Security Audit Report
+
+**Codebase:** Angular Test Suite
+
+**Scope:** This report analyzes the provided Angular test suite code for potential GDPR and cloud security vulnerabilities.
+
+**Analysis:**
+
+The code snippet represents a basic test suite for an Angular component named `App`. From a GDPR and cloud security perspective, this test suite itself poses minimal direct risk. Test suites primarily operate during development and CI/CD pipelines, not in a production environment. Therefore, vulnerabilities in test code are less likely to directly expose user data or compromise cloud infrastructure.
+
+However, it's crucial to consider the following indirect implications:
+
+1.  **Dependency Security:** The `App` component being tested might interact with backend services or store data. The test suite *should* include tests that verify the proper handling of user data according to GDPR principles. This means checking for secure data transmission (HTTPS), proper data sanitization to prevent injection attacks, and adherence to data minimization principles.
+
+2.  **Secrets Management (Indirect):** While not evident in *this* code, test configurations often involve secrets or API keys (e.g., backend URLs, database credentials). These secrets must be managed securely within the CI/CD pipeline and never be hardcoded in the test code or configuration files.
+
+3.  **Data Handling within the App Component:** This test suite verifies the existence and rendering of a title. To perform a thorough GDPR and cloud security audit, the `App` component's implementation itself *must* be analyzed for secure data handling practices.
+
+**Recommendations:**
+
+*   **Expand Test Coverage:** The current tests are very basic. Extend the test suite to cover data handling aspects of the `App` component, especially any interactions with backend services or data storage mechanisms. Test for data validation, sanitization, and secure transmission.
+*   **Review `App` Component:** Conduct a detailed security audit of the `App` component's code, focusing on GDPR compliance and secure coding practices.
+*   **Secure Secrets Management:** Ensure all secrets and API keys used in the CI/CD pipeline and test configurations are stored securely (e.g., using environment variables, secret management tools like HashiCorp Vault or cloud provider key management services).
+*   **Data Minimization Tests:** If `App` component manages/displays user data, add tests to ensure that only required data is being accessed and displayed.
+
+**Conclusion:**
+
+While the provided test code itself doesn't present direct security risks, it highlights the importance of comprehensive security testing during development. A thorough review of the `App` component and its data handling practices is crucial for ensuring GDPR compliance and protecting against potential cloud security vulnerabilities.
+
+--- END OF FILE: cli-scanner\audit_reports\app_spec_ts_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\CodeAnalysisRequest_java_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\dto\CodeAnalysisRequest.java
+
+## Security Audit Report
+
+**DTO: `CodeAnalysisRequest`**
+
+This report assesses the `CodeAnalysisRequest` Data Transfer Object (DTO) for potential GDPR and cloud security risks.
+
+### Overview
+The `CodeAnalysisRequest` DTO is used to receive code analysis requests, primarily Java code snippets, from a frontend application. It includes fields for the Java code itself and the desired language for analysis.
+
+### GDPR Concerns:
+*   **Data Minimization:** The DTO is designed to receive Java code for analysis, and a language preference.  This appears to adhere to data minimization principles, as it only collects the necessary information for the intended purpose (code analysis).
+*   **Data Type Considerations:** The `javaCode` field could potentially contain Personally Identifiable Information (PII) if the user submits code that includes such data (e.g., names, email addresses, etc.). While the DTO itself doesn't introduce the risk, the application processing this DTO **must** be designed to handle PII appropriately. This includes:
+    *   **Secure Storage:** If the `javaCode` is stored, it must be encrypted and access controlled.
+    *   **Data Processing Agreements:** If the `javaCode` is sent to third-party services for analysis, appropriate Data Processing Agreements (DPAs) must be in place.
+    *   **Data Retention:**  A clear data retention policy for the `javaCode` must be established and followed.
+*   **User Consent:** If the code submitted by the user contains any PII, proper user consent mechanisms should be in place, depending on the use case.
+
+### Cloud Security Concerns:
+*   **Injection Vulnerabilities:** The `javaCode` field is a primary concern for injection vulnerabilities.  The code analysis process **must** be sandboxed to prevent malicious code from exploiting the server or cloud infrastructure.
+*   **Denial of Service (DoS):**  Large or complex code snippets could potentially cause a DoS. Rate limiting and input validation (beyond the simple size check) should be implemented to mitigate this risk. Consider limiting the execution time of code analysis jobs to prevent indefinite resource consumption.
+*   **Input Validation:** While there's a `@Size` annotation for the `javaCode` field, it's essential to implement more robust input validation and sanitization to prevent malicious code from being injected.
+*   **Language Handling:** The default language setting to "en" helps prevent null pointer exceptions; however, the application should validate that the given `language` is supported and sanitize to prevent injection attacks if the language value is used in commands in the backend.
+
+### Recommendations:
+1.  **Implement Robust Input Validation:** Sanitize and validate the `javaCode` field to prevent injection attacks. Consider using a whitelist of allowed characters or a code parsing library to identify and neutralize potentially harmful code.
+2.  **Sandbox Code Execution:** Isolate the code analysis process in a secure sandbox to prevent malicious code from accessing or compromising the server or cloud environment.  Use technologies like containers or virtual machines for sandboxing.
+3.  **Implement Rate Limiting:**  Limit the number of code analysis requests from a single user or IP address to prevent DoS attacks.
+4.  **Monitor and Log:**  Monitor code analysis requests for suspicious activity and log all requests for auditing and security analysis purposes.
+5.  **Data Encryption:** If storing the `javaCode`, ensure it is encrypted at rest and in transit.
+6.  **Regular Security Audits:** Conduct regular security audits and penetration testing to identify and address potential vulnerabilities.
+7.  **Consider Static Analysis Security Testing (SAST):** Integrate SAST tools into your CI/CD pipeline to automatically identify security vulnerabilities in the submitted code.
+
+### Language Field Logic:
+The `getLanguage()` method's logic of defaulting to "en" if the language field is null is a good security practice to prevent NullPointerExceptions downstream. However, ensure the backend properly handles the "en" default and that it aligns with your overall security requirements.
+
+--- END OF FILE: cli-scanner\audit_reports\CodeAnalysisRequest_java_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\CodeAnalysisResponse_java_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\dto\CodeAnalysisResponse.java
+
+## GDPR & Cloud Security Audit Report
+
+**Class:** `CodeAnalysisResponse`
+
+**Overview:** This class is a simple data transfer object (DTO) used to encapsulate the response from a code analysis process. It includes a success flag, a message, the fixed code (potentially after remediation), and the code length.
+
+**GDPR Concerns:**
+
+*   **No Direct GDPR Implications:** This class itself doesn't directly handle personal data, so it has no direct GDPR compliance issues. It's important to consider how this class is *used* in the broader application context. For example, if the `fixedCode` field potentially contains personal data or code that processes personal data, then GDPR considerations apply to the data stored *within* `fixedCode` and how that data is handled elsewhere.
+*   **Indirect GDPR Implications:** The `message` field could *potentially* contain information related to identified GDPR compliance issues during code analysis, and how they were resolved by the `fixedCode`. Ensure sensitive information related to GDPR compliance is handled securely and appropriately (e.g., not logged to insecure locations).
+
+**Cloud Security Concerns:**
+
+*   **Data Exposure in Transit/At Rest:** If this DTO is serialized and transmitted over a network (e.g., in an API response), ensure that the communication channel is encrypted using HTTPS/TLS. If the DTO is persisted anywhere (e.g., logs, database), consider encryption-at-rest for the `fixedCode` and `message` fields to protect against unauthorized access.
+*   **Serialization Vulnerabilities:** Ensure the serialization mechanism used is secure and not vulnerable to deserialization attacks (e.g., using a known safe approach such as standard JSON serialization). Deserialization vulnerabilities can lead to remote code execution.
+*   **Information Disclosure:** The `message` and `fixedCode` fields *could* inadvertently expose sensitive information about the application's internal workings or vulnerabilities, if not carefully crafted. Ensure error messages and code snippets do not reveal more than necessary.
+
+**Recommendations:**
+
+1.  **Contextual GDPR Audit:** Conduct a thorough GDPR audit of the *entire* application, focusing on where this `CodeAnalysisResponse` is used. Ensure data processing activities involving the potentially remediated code comply with GDPR principles (lawfulness, fairness, transparency, purpose limitation, data minimization, accuracy, storage limitation, integrity, and confidentiality).
+2.  **Secure Communication:** Ensure HTTPS/TLS is enforced for all network communication involving instances of this class.
+3.  **Secure Storage:** If the `fixedCode` is persisted, encrypt it at rest.
+4.  **Secure Serialization:** Use a secure serialization library to avoid deserialization vulnerabilities. Consider using a well-established and actively maintained library like Jackson or Gson.
+5.  **Minimize Information Leakage:** Carefully sanitize messages and code snippets included in `message` and `fixedCode` to avoid exposing sensitive internal details.
+6.  **Consider Auditing Usage:** Implement auditing and logging of access to the `fixedCode` field, especially if it contains security-sensitive information or code that handles personal data.
+
+**Severity Assessment:**
+
+The severity level depends heavily on the context in which this DTO is used. If it is part of a critical system that processes sensitive data, the severity is high. If it is only used for internal tooling with limited access, the severity is lower.
+
+--- END OF FILE: cli-scanner\audit_reports\CodeAnalysisResponse_java_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\GdprAgentApiFernandoApplicationTests_java_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-backend\src\test\java\com\gdpr\agent\api\gdpr_agent_backend\GdprAgentApiFernandoApplicationTests.java
+
+## GDPR & Cloud Security Audit Report
+
+**Project:** `GdprAgentApiFernandoApplicationTests`
+
+**File:** `GdprAgentApiFernandoApplicationTests.java`
+
+**Overview:**
+
+The provided code snippet represents a basic Spring Boot test class. It primarily focuses on loading the application context. From a GDPR and cloud security perspective, this specific file poses minimal direct risks, as it does not handle user data or interact directly with cloud services. However, it's crucial to examine the broader application context to identify potential vulnerabilities.
+
+**GDPR Considerations:**
+
+*   **Absence of PII Handling:** The test class does not directly process Personally Identifiable Information (PII). Therefore, it doesn't directly violate GDPR principles.
+*   **Application Context:** The code resides within a larger application. A full audit requires examining data handling practices throughout the entire application. Ensure that all data processing activities comply with GDPR principles, including data minimization, purpose limitation, and data security.
+
+**Cloud Security Considerations:**
+
+*   **Minimal Cloud Interaction:** The test class, in isolation, does not directly interact with cloud services, therefore presents minimal direct cloud security risks. However, the underlying application could interact with cloud services.
+*   **Dependency Review:** Thoroughly review all dependencies used in the broader application for potential vulnerabilities. Ensure that these dependencies are regularly updated and patched.
+*   **Secrets Management:** Verify that any cloud credentials or API keys used by the application are properly managed using secure secrets management practices (e.g., HashiCorp Vault, AWS Secrets Manager, Azure Key Vault) and are **never** hardcoded in the code or configuration files. Ensure that test configurations also do not contain any real/production keys and secrets.
+*   **IAM Roles and Permissions:** Carefully configure IAM roles and permissions to adhere to the principle of least privilege. Limit access to cloud resources based on the actual requirements of the application.
+
+**Recommendations:**
+
+1.  **Comprehensive Application Audit:** Perform a comprehensive audit of the entire application to identify areas where PII is processed and ensure GDPR compliance. This includes examining data storage, processing, and transfer mechanisms.
+2.  **Dependency Scanning:** Implement automated dependency scanning to identify and address vulnerabilities in third-party libraries.
+3.  **Secrets Management:** Implement a robust secrets management solution to protect sensitive credentials.
+4.  **Least Privilege:** Enforce the principle of least privilege by granting only the necessary permissions to cloud resources.
+5.  **Logging and Monitoring:** Implement comprehensive logging and monitoring to detect and respond to security incidents.
+6.  **Security Testing:** Conduct regular penetration testing and vulnerability assessments to identify and address security weaknesses.
+
+**Conclusion:**
+
+While this specific test class does not present immediate GDPR or cloud security risks, it's imperative to consider it within the context of the larger application. A thorough audit of the entire application is essential to ensure compliance with GDPR and adherence to cloud security best practices.
+--- END OF FILE: cli-scanner\audit_reports\GdprAgentApiFernandoApplicationTests_java_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\GdprAgentApiFernandoApplication_java_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\GdprAgentApiFernandoApplication.java
+
+## GDPR & Cloud Security Audit Report
+
+**Application:** `GdprAgentApiFernandoApplication`
+
+**Overview:**
+
+The provided code snippet represents the main application class for a Spring Boot application named `GdprAgentApiFernandoApplication`.  While the code itself doesn't directly expose any immediate GDPR or cloud security vulnerabilities, its simplicity means it lacks crucial components for addressing these concerns. A comprehensive audit necessitates considering the broader application context (e.g., data storage, user authentication, data processing logic, third-party integrations, and deployment environment).  This report highlights areas requiring further investigation and potential enhancements.
+
+**Identified Risks & Recommendations:**
+
+1.  **Lack of Explicit GDPR Considerations:** The code provides no explicit mechanisms for GDPR compliance.  This includes:
+    *   **Data Minimization:** No indication of strategies to collect only necessary data.
+    *   **Data Subject Rights:** No implementation of features to support data access, rectification, erasure, or portability requests.
+    *   **Consent Management:** No consent mechanisms are apparent for data collection and processing.
+    *   **Data Security:** Absence of security measures to protect personal data (e.g., encryption, access controls).
+    *   **Data Breach Notification:** No procedures for detecting and reporting data breaches.
+    *   **Recommendation:** Integrate GDPR-specific modules or custom code to address these requirements. Implement a comprehensive data inventory and mapping exercise to understand the flow of personal data within the application. Implement robust consent management strategies.
+
+2.  **Cloud Security Considerations (General):** The provided code lacks configuration related to cloud security best practices.  Without knowing the deployment environment, it's difficult to provide specific recommendations, but the following are important areas to consider:
+    *   **Authentication & Authorization:** The application likely requires user authentication and authorization.  The current code provides no indication of how this is handled. Weak authentication mechanisms are a major security risk in cloud environments.
+        *   **Recommendation:** Implement strong authentication mechanisms (e.g., multi-factor authentication). Use role-based access control (RBAC) to restrict access to sensitive data and resources. Consider using a cloud-native identity provider.
+    *   **Data Encryption:** Data at rest and in transit should be encrypted to protect confidentiality.
+        *   **Recommendation:** Encrypt sensitive data at rest using appropriate encryption algorithms. Use TLS/SSL for all communication channels.
+    *   **Logging & Monitoring:**  Comprehensive logging and monitoring are essential for detecting and responding to security incidents.
+        *   **Recommendation:** Implement robust logging and monitoring capabilities.  Monitor application logs for suspicious activity. Integrate with a security information and event management (SIEM) system.
+    *   **Vulnerability Management:** Regularly scan for and remediate vulnerabilities in the application and its dependencies.
+        *   **Recommendation:** Implement a vulnerability management program. Use automated scanning tools to identify vulnerabilities. Stay up-to-date with security patches.
+    *   **Secure Configuration:** Ensure that the application and its underlying infrastructure are securely configured.
+        *   **Recommendation:** Follow security best practices for configuring the application and its environment. Harden the operating system and other components.
+
+3.  **Dependency Management:** The code does not provide information about dependencies.  Vulnerable dependencies are a common attack vector.
+    *   **Recommendation:** Use a dependency management tool (e.g., Maven, Gradle) to manage dependencies. Regularly scan dependencies for vulnerabilities and update them to the latest versions.
+
+4.  **Error Handling:** The code lacks explicit error handling mechanisms. Detailed error messages can expose sensitive information.
+    *   **Recommendation:** Implement proper error handling. Avoid exposing sensitive information in error messages. Log errors for debugging purposes.
+
+**Conclusion:**
+
+This audit identifies several areas where the application could be improved to enhance GDPR compliance and cloud security. The recommendations provided are general in nature and should be tailored to the specific requirements of the application and its environment.  A thorough risk assessment and security testing are recommended to identify and address any remaining vulnerabilities.
+
+--- END OF FILE: cli-scanner\audit_reports\GdprAgentApiFernandoApplication_java_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\main_ts_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-frontend\src\main.ts
+
+## Security Audit Report
+
+**Code Analyzed:**
+
+```typescript
+import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+import { AppModule } from './app/app.module';
+
+platformBrowserDynamic().bootstrapModule(AppModule)
+  .catch(err => console.error(err));
+```
+
+**Summary:**
+
+The provided code snippet represents the main entry point for an Angular application. It bootstraps the `AppModule` using `platformBrowserDynamic`. While the code itself doesn't directly introduce GDPR or cloud security risks, the surrounding context and application architecture are crucial for maintaining compliance and security.
+
+**GDPR Considerations:**
+
+*   **Data Collection and Processing:** The `main.ts` file doesn't directly handle data. However, `AppModule` and its components will inevitably interact with user data, backend services, and potentially third-party APIs.  A thorough review of `AppModule` and all related modules/services is required to assess data processing activities.
+*   **Logging:**  The `catch` block logs errors to the console. While useful for debugging, excessive or unredacted error logging could inadvertently expose sensitive information (e.g., user IDs, session tokens, internal server details).  Centralized and carefully configured logging is essential.
+*   **User Consent and Transparency:**  The Angular application *must* implement mechanisms for obtaining user consent for data collection and processing activities.  This often involves a consent banner/dialogue and a clear privacy policy.
+*   **Data Minimization and Purpose Limitation:** The application should only collect and process data necessary for specific, legitimate purposes. Data retention policies should also be enforced.
+
+**Cloud Security Considerations:**
+
+*   **Dependency Management:**  The `package.json` file (not shown but critical) must be carefully managed to ensure that all dependencies are up-to-date and free from known vulnerabilities.  Regularly audit and update dependencies using tools like `npm audit` or `yarn audit`.
+*   **Build and Deployment Pipeline:** The process of building and deploying the Angular application to the cloud must be secure.  Use secure CI/CD pipelines, enforce code reviews, and implement security scanning tools to identify vulnerabilities before deployment.
+*   **Environment Variables:**  Sensitive configuration data (API keys, database credentials, etc.) should *never* be hardcoded in the code.  Use environment variables and a secure secrets management solution (e.g., AWS Secrets Manager, Azure Key Vault, HashiCorp Vault).
+*   **Authentication and Authorization:** Ensure robust authentication and authorization mechanisms are in place to protect the application and its data. Use established standards like OAuth 2.0 and OpenID Connect.
+*   **Input Validation and Output Encoding:**  Protect against common web vulnerabilities like Cross-Site Scripting (XSS) and SQL injection by implementing rigorous input validation and output encoding throughout the application.
+*   **Error Handling:** Display generic error messages to end-users while logging detailed error information securely server-side.
+
+**Recommendations:**
+
+1.  **Detailed Code Review:**  Conduct a thorough security audit of `AppModule` and all related components, services, and backend integrations.
+2.  **Implement Secure Logging:** Configure centralized logging with appropriate redaction and access controls.
+3.  **Secure Dependency Management:** Regularly audit and update dependencies.
+4.  **Secure CI/CD Pipeline:** Implement secure build and deployment processes.
+5.  **Secrets Management:** Use environment variables and a secure secrets management solution.
+6.  **Authentication and Authorization:** Implement robust authentication and authorization.
+7.  **Input Validation and Output Encoding:** Protect against common web vulnerabilities.
+8.  **Data Loss Prevention (DLP):** Implement measures to prevent sensitive data from leaving the cloud environment.
+
+**Conclusion:**
+
+While the `main.ts` file is relatively simple, the overall security and GDPR compliance of the Angular application depend heavily on the architecture, implementation details, and operational practices. A comprehensive security audit and adherence to best practices are essential.
+
+--- END OF FILE: cli-scanner\audit_reports\main_ts_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\PythonAgentResponse_java_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\dto\PythonAgentResponse.java
+
+Okay, I'll analyze the Java code snippet provided from a Senior GDPR & Cloud Security Auditor's perspective and provide a report outlining potential risks and recommended fixes.
+
+**Report:**
+
+**1. 🛡️ GDPR Violations (PII exposure, logging, etc.)**
+
+This code snippet, on its own, doesn't directly violate GDPR. It's a Data Transfer Object (DTO) used to represent the response from a Python agent (presumably running GDPR analysis).  However, *context* is crucial.  The potential GDPR risks lie in how this DTO is used within the larger system. Here's what we need to consider:
+
+*   **PII Handling:** The `Violation` class holds `rule`, `description`, and `severity`.  If the `description` field contains Personally Identifiable Information (PII) *that is collected and passed between systems*, that *could* be a GDPR violation, *especially* if the severity indicated means it was processed without consent, or in a way which is likely to result in an adverse impact.
+
+*   **Data Minimization:**  The `input_length` field and the `summary` field, might indirectly expose PII depending on what they contain. For example, the summary might summarize the data it analyzed, which could directly expose PII.
+
+*   **Data Logging:**  If this DTO is logged, especially the `violations` list or the `summary`, it's crucial to ensure that PII is not inadvertently included in the logs. Logging PII without proper justification and security measures is a violation.
+
+*   **Data Retention:** How long is the `analysis_id` retained?  If the analysis includes PII, retention policies must comply with GDPR's "storage limitation" principle (Article 5(1)(e)).
+
+*   **Data Security:** Where is the data held. Is it encrypted in transit and at rest? Is there suitable access control to that data?
+
+**2. ☁️ Cloud Security Risks (Hardcoded keys, wrong regions, etc.)**
+
+Again, based solely on the code snippet, there are *no immediate, direct* cloud security risks. However, the risks depend on the wider context and how this DTO is used in a cloud environment:
+
+*   **Indirect Exposure via Violations:** If the `Violation` class's `description` field contains sensitive information (like AWS IAM role names or resource IDs), logging or transmitting this DTO could indirectly expose cloud infrastructure details to unauthorized parties. This is especially true if the data it processes comes from cloud configurations.
+
+*   **Region Considerations:** The Flask API that generates this DTO (implied by the comment) *must* be deployed in a region compliant with GDPR (e.g., EU, or a jurisdiction with an adequacy decision from the EU Commission). This DTO being used outside the EU might trigger GDPR issues.
+
+*   **Lack of Input Validation:** The DTO itself lacks any input validation. This means the system receiving this DTO must ensure the values of status, rule, descriptions, severities, etc. are valid and cannot be maliciously crafted.
+
+*   **Analysis ID as a security risk:** Analysis ID might become an identifier that could be used as part of a correlation attack.
+
+**3. ✅ Recommended Fixes**
+
+*   **Thorough PII Audit:** Conduct a comprehensive review of the entire data flow, starting from the source data analyzed by the Python agent, through the Flask API, to this Java DTO, and ending with where this DTO's information is stored or processed. Identify all instances where PII might be present.
+
+*   **PII Masking/Anonymization:** Implement robust PII masking or anonymization techniques within the Python agent or before the data is transferred to the Java application.  Ensure the `description` field in the `Violation` class is carefully sanitized. Potentially, do not expose the `description` field, and only expose a sanitised error message ID.
+
+*   **Secure Logging Practices:** Review all logging statements that might include this DTO.  Avoid logging the `violations` list or the `summary` if they contain PII.  If logging is essential, use secure logging frameworks that support redaction and encryption.
+
+*   **Input Validation and Sanitization:** Implement strict input validation on the receiving end of this DTO.  Ensure that the `status`, `rule`, `description`, and `severity` fields are properly sanitized to prevent injection attacks or other security vulnerabilities. The `input_length` should also have a reasonable maximum to prevent resource exhaustion.
+
+*   **Data Retention Policies:**  Establish clear data retention policies for the `analysis_id` and any associated data. Implement automated deletion mechanisms to comply with GDPR's storage limitation principle.
+
+*   **Security Awareness Training:** Ensure developers and operations staff understand GDPR requirements and secure coding practices.
+
+*   **Access Control:** Enforce strict access control policies to the data represented by this DTO, both in transit and at rest. Apply the principle of least privilege.
+
+*   **Cloud Region Compliance:**  Verify that all components of the application, including the Flask API, are deployed in GDPR-compliant cloud regions.
+
+*   **Regular Security Assessments:** Conduct regular penetration testing and vulnerability assessments of the entire system, including the Python agent, Flask API, and Java application.
+
+*   **Violation Severity:** Review the severity labels and what impact each one has. If the severity is high, that might need human intervention.
+
+*   **Consider immutability:** Consider making the fields of the DTO final to prevent accidental modification.
+
+*   **Consider using UUIDs:** Analysis ID is a string, but it would make more sense if it was a UUID (Universally Unique Identifier).
+
+By implementing these recommendations, you can significantly reduce the risk of GDPR violations and enhance the security posture of your cloud application. Remember that this analysis is based *solely* on the provided Java DTO. A comprehensive assessment requires examining the entire system architecture and data flow.
+
+--- END OF FILE: cli-scanner\audit_reports\PythonAgentResponse_java_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\scanner_py_report.md ---
+# 🛡️ Security Audit Report: ../cli-scanner\scanner.py
+
+Okay, I will analyze the provided Python script for potential GDPR violations and cloud security risks, and then provide recommended fixes.
+
+Here's the audit report:
+
+## 🛡️ Security Audit Report
+
+**Script:** Python Script Provided
+
+**Auditor:** Senior GDPR & Cloud Security Auditor
+
+### 1. 🛡️ GDPR Violations (PII exposure, logging, etc.)
+
+*   **PII Exposure (Potentially in Code):**  The script scans files and sends their content to an API endpoint (`http://localhost:8080/api/v1/analysis/submit`).  If the scanned code contains Personally Identifiable Information (PII) like names, email addresses, API keys, database connection strings, etc., then this data is transmitted to the API.  This transmission needs to be GDPR compliant, especially regarding data minimization, purpose limitation, and security of transfer. The script itself has no control over what code its processing; therefore it has no control of possible PII exposure.
+*   **Data Processing Purpose Ambiguity:** The script sends code to an API for "analysis." The exact purpose of this analysis is not explicitly defined within the script. Under GDPR, processing must be for a specified, explicit, and legitimate purpose.  Clarity is needed on what this analysis entails and how the data is being used by the backend.
+*   **Lack of Data Minimization Controls:** The script sends the *entire* file content to the API. Data minimization principles under GDPR dictate that only the data *necessary* for the specific purpose should be processed. The script does not filter out any part of the file content before sending it.
+*   **No Consent Management:** The script automatically scans directories without explicit consent from data owners whose PII may be included in the scanned files (e.g., developers if the code includes personal data in comments or configuration).  Consent might be relevant in scenarios where the scanning is part of a development process.
+*   **Insecure API URL (Potentially):** The script uses `http://localhost:8080/api/v1/analysis/submit`. The `http` protocol is not secure and transmits data in plain text. This is a major security risk if PII is being transmitted. While this example shows a local host, the same issue would apply if this was hosted elsewhere.
+
+### 2. ☁️ Cloud Security Risks (Hardcoded keys, wrong regions, etc.)
+
+*   **API Endpoint Configuration (Hardcoded):** The `API_URL` is hardcoded within the script. While it points to localhost in the current version, this makes it harder to manage and change when deploying the script in different environments (development, testing, production). Hardcoding can lead to mistakes, particularly if the same script is used in production with a development API endpoint.
+*   **Lack of Authentication/Authorization:** The script appears to make unauthenticated requests to the API endpoint. Without proper authentication, anyone with access to the network could potentially send code for analysis.
+*   **Error Handling with Exceptions:**  The script catches general exceptions (`except Exception as e:`) and prints the error.  While this prevents the script from crashing, it can mask underlying issues and provide attackers with too much information.
+*   **Insecure Communication:** The API communications are happening over HTTP and is vulnerable to man-in-the-middle attacks.
+*   **Lack of Input Validation:** There is no validation of the data before sending it to the API endpoint. An attacker could exploit this by injecting malicious code that could be executed by the backend system.
+*   **Logging Issues:** The script outputs messages via `print`. For production environments, a proper logging mechanism (e.g., using Python's `logging` module) should be implemented. This allows for better tracking of events, errors, and potential security incidents.  The `print` statements are also verbose, revealing the paths of files, which could potentially leak sensitive information.
+
+### 3. ✅ Recommended Fixes
+
+*   **Implement Secure API Communication (HTTPS):**  Change the `API_URL` to use `https` and ensure that the API server has a valid TLS/SSL certificate. This will encrypt the communication channel and protect sensitive data during transit.
+*   **Implement Authentication and Authorization:**  Add authentication and authorization mechanisms to the API requests. This could involve API keys, OAuth 2.0, or other authentication protocols. The script should securely store and use these credentials.
+*   **Data Minimization:**  Before sending data to the API, implement a mechanism to identify and remove potentially sensitive information, such as PII or secrets, from the code. Techniques include regular expression matching or static code analysis.
+*   **Explicit Data Processing Purpose:** Clearly define the purpose of the code analysis and document it. The documentation should be accessible to all stakeholders and should comply with GDPR requirements.
+*   **Configuration Management:**  Move the `API_URL`, `TARGET_DIRECTORY`, and `EXTENSIONS_TO_SCAN` into a configuration file (e.g., a `.env` file) or use environment variables. This makes the script more flexible and easier to manage in different environments.  Use a library like `python-dotenv` to load environment variables from a `.env` file.
+*   **Improved Error Handling:** Replace general exception handling (`except Exception as e:`) with more specific exception handling. Log errors using Python's `logging` module, providing more context and enabling better monitoring and debugging.
+*   **Secure Logging:** Replace `print` statements with calls to the `logging` module. Configure the logging module to write logs to a secure location with appropriate access controls.  Consider rotating logs to prevent them from filling up disk space.
+*   **Input Validation and Sanitization:**  Implement input validation and sanitization on the backend API to prevent injection attacks. The API should validate the data it receives from the script and reject any invalid or malicious input.
+*    **Consent Mechanism:** If you are dealing with files that may contain data from other individuals, you need to integrate a mechanism to acquire consent. You can do this, for example, by only allowing the program to process files in a specific directory after confirmation from the user.
+*   **Review API Security:** A complete review of the backend API is required to confirm if it is fully secure and GDPR compliant. The analysis above is based only on the client-side application.
+
+These recommendations will significantly improve the security and GDPR compliance of the provided Python script. Remember to consult with legal and compliance experts to ensure that your implementation meets all relevant regulatory requirements.
+
+--- END OF FILE: cli-scanner\audit_reports\scanner_py_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\test_key_py_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-ai-engine\test_key.py
+
+Okay, I'll analyze the provided Python code from a GDPR and Cloud Security perspective, acting as a Senior Auditor. Here's the report:
+
+**1. 🛡️ GDPR Violations**
+
+*   **1.1. Lack of PII Handling:** The code itself doesn't *directly* handle Personally Identifiable Information (PII). It primarily focuses on API key validation and model listing from Google's generative AI services. However, if the `GOOGLE_API_KEY` used in this script is associated with an account that *processes* PII through the generative AI models, then GDPR considerations *indirectly* apply. For instance, If the API is used for text generation that processes PII, then data protection impact assessment, data processing agreements and consent requirements may apply depending on the use case.
+*   **1.2. Logging Concerns (Potential):** The code prints the first 5 characters of the API key to the console (`print(f"🔑 Testando chave: {str(api_key)[:5]}...******")`). While it's masked, any logging or screen capture of this output could expose partial key information. Furthermore, all the prints including errors can be logged and can be used by malicious actors.
+*   **1.3. Data Residency (Implicit):** The code doesn't specify a Google Cloud region. Depending on the default region or the region specified in the underlying `google.generativeai` library configuration (which isn't shown here), data processed by the generative AI models might be stored or processed in a region outside the GDPR's jurisdiction (EU). This could lead to GDPR compliance issues.
+
+**2. ☁️ Cloud Security Risks**
+
+*   **2.1. Hardcoded API Key Risk:**  Storing the `GOOGLE_API_KEY` in a `.env` file, while better than hardcoding it directly in the script, is still a risk. `.env` files are easily accidentally committed to version control (e.g., Git), especially if not explicitly included in `.gitignore`.  This can lead to key exposure.
+*   **2.2. Insufficient Key Rotation:** The code doesn't include any mechanism for regularly rotating the `GOOGLE_API_KEY`. If the key is compromised, it remains valid until manually revoked.
+*   **2.3. Lack of IAM Principles (Implicit):** The code uses the API key directly. This doesn't leverage Identity and Access Management (IAM) principles for granular control over API access.  It provides a single point of failure and a broader scope of access than necessary.
+*   **2.4. Error Handling Revealing Information:** The `except Exception as e:` blocks catch all exceptions, which might be needed for the script to continue. However, the code prints the full error message, which could reveal internal configuration or other sensitive information helpful to an attacker.
+*   **2.5. Limited Monitoring/Auditing:** The code lacks any specific monitoring or auditing mechanisms.  It's difficult to track API usage, potential abuse, or unauthorized access attempts.
+
+**3. ✅ Recommended Fixes**
+
+*   **3.1. Implement Secure Secret Management:**
+    *   **Strongly recommend:** Replace `.env` files with a dedicated secret management solution like:
+        *   **HashiCorp Vault:** If you're already using HashiCorp tools.
+        *   **Google Cloud Secret Manager:** Ideal for Google Cloud deployments and tightly integrates with IAM.
+        *   **AWS Secrets Manager/Parameter Store:** If the application runs on AWS.
+        *   **Azure Key Vault:** If running on Azure.
+    *   Retrieve the API key from the secret manager *at runtime*.
+
+*   **3.2. Implement IAM and Service Accounts (if applicable):**
+    *   Instead of using API keys directly, explore using Google Cloud service accounts with appropriate IAM roles assigned. This provides more granular control over access and aligns with the principle of least privilege.  You'd need to authenticate the application using the service account credentials. The underlying `google.generativeai` library likely has methods for using service account authentication.
+
+*   **3.3. Key Rotation Policy:**
+    *   Establish a policy for regularly rotating the `GOOGLE_API_KEY`. This should involve:
+        *   Generating a new key.
+        *   Updating the key in the secret manager.
+        *   Deploying the updated application configuration.
+        *   Revoking the old key (after ensuring the new key is working).
+
+*   **3.4. Enhanced Error Handling:**
+    *   Instead of printing the full exception message, log a more generic error message (e.g., "An unexpected error occurred.") and log the full exception details to a secure logging system (see below).  Do not expose potentially sensitive error information to the user.
+    *   Implement more specific exception handling to catch and address potential errors related to network connectivity, API authentication, and authorization.
+
+*   **3.5. Centralized Logging and Monitoring:**
+    *   Implement a centralized logging system (e.g., using Google Cloud Logging, Stackdriver Logging, or similar) to capture all application logs, including API usage, errors, and audit events.
+    *   Configure monitoring and alerting to detect suspicious activity, such as excessive API requests, unauthorized access attempts, or unusual error patterns.
+
+*   **3.6. Data Residency Review:**
+    *   Explicitly define the Google Cloud region where your data will be processed and stored when interacting with the generative AI models.  Ensure this region aligns with your GDPR compliance requirements (e.g., choosing a region within the EU if processing EU citizen data).  Consult the `google.generativeai` library documentation for region configuration options.
+
+*   **3.7. Git Hygiene:**
+    *   **Immediately** add `.env` to your `.gitignore` file.
+    *   If you suspect the API key has been committed to a public repository, **revoke the key immediately** and generate a new one.
+
+*   **3.8. Secure Key Masking:**
+    *   Avoid printing even partial API keys to the console.  If you need to indicate that a key is being used, consider printing a generic message like "API key loaded from environment."
+
+*   **3.9. Data Minimization and Purpose Limitation (Related to AI Usage):**
+    *   Since the code interacts with a generative AI model, ensure that you adhere to GDPR principles of data minimization and purpose limitation. Only send the AI model the minimum amount of data required for the specific task, and ensure that the data is only used for the purpose for which it was collected.
+
+* **3.10. DPIA for AI use case:**
+    * Depending on the use case of the AI, a Data Protection Impact Assessment might be needed to comply with GDPR requirements.
+
+By implementing these recommendations, you can significantly improve the security posture of your application and reduce the risk of GDPR violations and cloud security breaches. Remember that security is an ongoing process, and it's crucial to regularly review and update your security measures.
+
+--- END OF FILE: cli-scanner\audit_reports\test_key_py_report.md ---
+
+--- START OF FILE: cli-scanner\audit_reports\WebConfig_java_report.md ---
+# 🛡️ Security Audit Report: ../gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\config\WebConfig.java
+
+## GDPR & Cloud Security Audit Report
+
+**Component:** `WebConfig.java` (CORS Configuration)
+
+**Scope:** This report assesses the CORS configuration within the application, focusing on GDPR and general security best practices.
+
+**Findings:**
+
+1.  **Open CORS Configuration:** The current configuration allows requests from `http://localhost:4200`. While this is suitable for local development, it poses a significant security risk if deployed to production without modification.  A wildcard or overly permissive `allowedOrigins` setting can allow unauthorized access to API endpoints, potentially exposing sensitive data. This directly impacts GDPR compliance if user data is accessible via these endpoints. The `allowedHeaders("*")` setting is also overly permissive.
+
+2.  **Lack of Environment-Specific Configuration:** The code lacks conditional logic to differentiate between development and production environments.  A hardcoded origin is used, making it necessary to manually change the configuration before deploying to production.
+
+3.  **`allowCredentials(true)` Implication:** Enabling `allowCredentials(true)` means that the application accepts credentials (cookies, HTTP authentication) from the specified origin.  This can be safe when correctly configured, but in combination with a wildcard or overly permissive `allowedOrigins`, it dramatically increases the risk of Cross-Site Request Forgery (CSRF) attacks.
+
+**Recommendations:**
+
+1.  **Restrict Allowed Origins in Production:**  Replace `http://localhost:4200` with the **exact, fully qualified domain(s)** of your production environment.  Avoid using wildcards (`*`) unless absolutely necessary and with a thorough understanding of the security implications.
+
+2.  **Environment-Based Configuration:** Use Spring profiles or environment variables to configure CORS settings differently for development and production. This ensures that development settings are not accidentally deployed to production.
+
+3.  **Restrict Allowed Headers:** Instead of `allowedHeaders("*")`, explicitly list the headers that your application expects and requires. This reduces the attack surface.
+
+4.  **Consider CSRF Protection:** When using `allowCredentials(true)`, ensure that appropriate CSRF protection mechanisms (e.g., synchronizer token pattern) are implemented on both the client and server-side to mitigate CSRF attacks.  Spring Security provides built-in CSRF protection.
+
+5. **Regularly Review:** CORS configuration should be reviewed regularly as part of the application's security maintenance process.
+
+**GDPR Impact:**
+
+An insecure CORS configuration can lead to unauthorized access to user data, violating GDPR principles related to data security and confidentiality (Article 5(1)(f) and Article 32). If an attacker successfully exploits a misconfigured CORS policy to access user data, the organization could face significant fines and reputational damage.
+
+**Cloud Security Considerations:**
+
+In cloud environments, misconfigured CORS policies can be particularly problematic as applications are often exposed to the public internet. Cloud-specific security features (e.g., WAF rules, API gateways) should be used in conjunction with proper CORS configuration to provide a layered defense. Cloud configuration errors often lead to breaches, highlighting the importance of robust configuration management.
+
+--- END OF FILE: cli-scanner\audit_reports\WebConfig_java_report.md ---
+
+--- START OF FILE: gdpr-agent-ai-engine\agent_api.py ---
+import os
+import json
+import re
+import logging
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from dotenv import load_dotenv
+import google.generativeai as genai
+# Importando as exceções de API mais comuns
+from google.api_core.exceptions import ResourceExhausted, GoogleAPICallError
+
+# Configuração de Logs
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+load_dotenv()
+app = Flask(__name__)
+CORS(app)
+
+# Validação da API Key
+api_key = os.getenv("GOOGLE_API_KEY")
+if not api_key:
+    # MUDANÇA: Não use a API Key se ela não for encontrada, evite erros de configuração
+    logger.error("❌ ERROR: API Key not found in .env file! AI functions will fail.")
+else:
+    genai.configure(api_key=api_key)
+    logger.info("✅ API Key loaded.")
+
+def extract_json(text):
+# ... (Função extract_json é mantida igual)
+    """Extrai JSON de forma robusta, ignorando formatações extras da IA"""
+    try:
+        # Tenta limpar blocos de markdown comuns
+        clean = text.replace("```json", "").replace("```", "").strip()
+        return json.loads(clean)
+    except:
+        try:
+            # Procura pelo primeiro '{' e o último '}'
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match: return json.loads(match.group())
+        except: pass
+    return None
+
+
+@app.route('/analyze/code', methods=['POST'])
+def analyze_code():
+    # Primeira verificação: se a chave da API falhou ao carregar
+    if not api_key:
+        return jsonify({"status": "error", "summary": "API Key não configurada no servidor."}), 500
+
+    try:
+        data = request.json
+        java_code = data.get('javaCode', '')
+        language = data.get('language', 'en')
+        
+        # Mapeamento de idiomas
+        lang_map = {
+            'pt': 'Portuguese (Brasil)',
+            'es': 'Spanish',
+            'fr': 'French',
+            'it': 'Italian',
+            'de': 'German',
+            'en': 'English'
+        }
+        selected_lang = lang_map.get(language, 'English')
+
+        logger.info(f"Analyzing code request. Lang: {selected_lang}")
+
+        # Prompt Otimizado para JSON
+        prompt = f"""
+        Act as a Senior Security Auditor. Analyze this code:
+        {java_code}
+        
+        OUTPUT JSON ONLY with these exact keys:
+        - "markdown_report": Report in {selected_lang}.
+        - "fixed_code": Secure code.
+        - "security_score": Integer 0-100.
+        - "risk_level": String ("LOW", "MEDIUM", "HIGH", "CRITICAL").
+        """
+
+        # CORREÇÃO CRÍTICA: Trocando o nome do modelo para um suportado e atual
+        # gemini-2.5-flash é a versão estável mais recente do modelo Flash
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(prompt)
+        
+        ai_output = extract_json(response.text)
+        
+        if not ai_output:
+            return jsonify({
+                 "status": "success",
+                 "summary": response.text,
+                 "fixed_code": "// Error parsing AI JSON. Check report.",
+                 "security_score": 50,
+                 "risk_level": "MEDIUM"
+               })
+
+        return jsonify({
+            "status": "success",
+            "summary": ai_output.get("markdown_report") or ai_output.get("summary"),
+            "fixed_code": ai_output.get("fixed_code"),
+            "security_score": ai_output.get("security_score", 0),
+            "risk_level": ai_output.get("risk_level", "UNKNOWN")
+        })
+
+    # TRATAMENTO ESPECÍFICO PARA ERROS DA API GEMINI
+    except ResourceExhausted:
+        error_msg = "Limite de Quota da API excedido. Tente novamente mais tarde."
+        logger.error(f"API Error: {error_msg}")
+        return jsonify({"status": "error", "summary": error_msg}), 500
+
+    except GoogleAPICallError as e:
+        error_msg = f"Erro na chamada da API Google: {str(e)}"
+        logger.error(f"API Error: {error_msg}")
+        return jsonify({"status": "error", "summary": error_msg}), 500
+
+    except Exception as e:
+        logger.error(f"General AI Engine Error: {e}", exc_info=True) # Adicionado exc_info=True para logar o traceback
+        return jsonify({"status": "error", "summary": f"Erro interno do servidor: {str(e)}"}), 500
+
+if __name__ == '__main__':
+    logger.info("🚀 Starting AI Engine on port 5000...")
+    # Configuração para Docker: host 0.0.0.0
+    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+--- END OF FILE: gdpr-agent-ai-engine\agent_api.py ---
+
+--- START OF FILE: gdpr-agent-ai-engine\requirements.txt ---
+flask==3.0.0
+flask-cors==4.0.0
+python-dotenv==1.0.0
+google-generativeai==0.3.2
+requests==2.31.0
+--- END OF FILE: gdpr-agent-ai-engine\requirements.txt ---
+
+--- START OF FILE: gdpr-agent-ai-engine\test_key.py ---
+import os
+from dotenv import load_dotenv
+import google.generativeai as genai
+
+# 1. Carrega a chave
+load_dotenv()
+api_key = os.getenv("GOOGLE_API_KEY")
+
+print(f"🔑 Testando chave: {str(api_key)[:5]}...******")
+
+if not api_key:
+    print("❌ ERRO: Chave não encontrada no arquivo .env")
+    exit()
+
+# 2. Configura
+try:
+    genai.configure(api_key=api_key)
+    print("✅ Configuração inicial OK.")
+except Exception as e:
+    print(f"❌ Erro de configuração: {e}")
+    exit()
+
+# 3. Pergunta ao Google quais modelos você pode usar
+print("\n📡 Consultando modelos disponíveis para sua chave...")
+try:
+    found_model = False
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            print(f"   - Modelo disponível: {m.name}")
+            found_model = True
+    
+    if not found_model:
+        print("⚠️ A conexão funcionou, mas nenhum modelo de texto foi encontrado. Verifique as permissões da chave.")
+    else:
+        print("\n✅ SUCESSO! Sua chave está funcionando e tem acesso à API.")
+
+except Exception as e:
+    print(f"❌ ERRO CRÍTICO DE CONEXÃO: {e}")
+    print("Dica: Verifique se sua internet bloqueia APIs ou se a chave foi cancelada.")
+--- END OF FILE: gdpr-agent-ai-engine\test_key.py ---
+
+--- START OF FILE: gdpr-agent-backend\HELP.md ---
+# Read Me First
+The following was discovered as part of building this project:
+
+* The original package name 'com.gdpr.agent.api.gdpr-agent-backend' is invalid and this project uses 'com.gdpr.agent.api.gdpr_agent_backend' instead.
+
+# Getting Started
+
+### Reference Documentation
+For further reference, please consider the following sections:
+
+* [Official Apache Maven documentation](https://maven.apache.org/guides/index.html)
+* [Spring Boot Maven Plugin Reference Guide](https://docs.spring.io/spring-boot/3.5.7/maven-plugin)
+* [Create an OCI image](https://docs.spring.io/spring-boot/3.5.7/maven-plugin/build-image.html)
+* [Spring Web](https://docs.spring.io/spring-boot/3.5.7/reference/web/servlet.html)
+* [Spring Data JPA](https://docs.spring.io/spring-boot/3.5.7/reference/data/sql.html#data.sql.jpa-and-spring-data)
+
+### Guides
+The following guides illustrate how to use some features concretely:
+
+* [Building a RESTful Web Service](https://spring.io/guides/gs/rest-service/)
+* [Serving Web Content with Spring MVC](https://spring.io/guides/gs/serving-web-content/)
+* [Building REST services with Spring](https://spring.io/guides/tutorials/rest/)
+* [Accessing Data with JPA](https://spring.io/guides/gs/accessing-data-jpa/)
+
+### Maven Parent overrides
+
+Due to Maven's design, elements are inherited from the parent POM to the project POM.
+While most of the inheritance is fine, it also inherits unwanted elements like `<license>` and `<developers>` from the parent.
+To prevent this, the project POM contains empty overrides for these elements.
+If you manually switch to a different parent and actually want the inheritance, you need to remove those overrides.
+
+
+--- END OF FILE: gdpr-agent-backend\HELP.md ---
+
+--- START OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\GdprAgentApiFernandoApplication.java ---
+package com.gdpr.agent.api.gdpr_agent_backend;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class GdprAgentApiFernandoApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(GdprAgentApiFernandoApplication.class, args);
+	}
+
+}
+
+--- END OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\GdprAgentApiFernandoApplication.java ---
+
+--- START OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\config\WebConfig.java ---
+package com.gdpr.agent.api.gdpr_agent_backend.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
+import java.util.Collections;
+
+@Configuration
+public class WebConfig {
+
+    @Bean
+    public CorsFilter corsFilter() {
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        CorsConfiguration config = new CorsConfiguration();
+        
+        // Permite tudo (seguro pois está atrás do Nginx no Docker)
+        config.setAllowCredentials(true);
+        config.addAllowedOriginPattern("*");
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        
+        source.registerCorsConfiguration("/**", config);
+        return new CorsFilter(source);
+    }
+}
+--- END OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\config\WebConfig.java ---
+
+--- START OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\controller\AnalysisController.java ---
+package com.gdpr.agent.api.gdpr_agent_backend.controller;
+
+import com.gdpr.agent.api.gdpr_agent_backend.dto.CodeAnalysisRequest;
+import com.gdpr.agent.api.gdpr_agent_backend.dto.CodeAnalysisResponse;
+import com.gdpr.agent.api.gdpr_agent_backend.service.AnalysisService; // <--- 1. IMPORTANTE: Importar o Serviço
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/analysis")
+public class AnalysisController {
+
+    // 2. DECLARAR A VARIÁVEL DO SERVIÇO
+    // 'private final' garante que ela não mude depois de criada.
+    private final AnalysisService analysisService;
+
+    // 3. INJEÇÃO VIA CONSTRUTOR (A "Mágica" acontece aqui)
+    // Quando o Spring cria o Controller, ele vê que precisa do AnalysisService
+    // e o coloca aqui automaticamente.
+    public AnalysisController(AnalysisService analysisService) {
+        this.analysisService = analysisService;
+    }
+
+    @PostMapping("/submit")
+    public ResponseEntity<CodeAnalysisResponse> analyzeCode(
+            @Valid @RequestBody CodeAnalysisRequest request) {
+
+        System.out.println("Received request from Angular. Calling Python Agent...");
+        
+        // 4. USAR O SERVIÇO
+        // Agora podemos chamar o método que criamos no serviço
+        CodeAnalysisResponse response = analysisService.analyzeCode(request);
+        
+        return ResponseEntity.ok(response);
+    }
+}
+--- END OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\controller\AnalysisController.java ---
+
+--- START OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\dto\CodeAnalysisRequest.java ---
+package com.gdpr.agent.api.gdpr_agent_backend.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+// DTO que representa a requisição vinda do Angular
+public class CodeAnalysisRequest {
+
+    // O código Java enviado pelo usuário
+    @NotBlank(message = "The code must not be empty.")
+    @Size(min = 10, message = "Code snippet is too short for analysis.")
+    private String javaCode;
+
+    // NOVO CAMPO: O idioma escolhido (en, pt, es, etc.)
+    // Não colocamos @NotBlank porque se vier vazio, assumimos inglês no getter.
+    private String language;
+
+    // Construtor Padrão (Obrigatório para o Jackson/Spring)
+    public CodeAnalysisRequest() {}
+
+    public CodeAnalysisRequest(String javaCode, String language) {
+        this.javaCode = javaCode;
+        this.language = language;
+    }
+
+    // --- Getters e Setters ---
+
+    public String getJavaCode() {
+        return javaCode;
+    }
+
+    public void setJavaCode(String javaCode) {
+        this.javaCode = javaCode;
+    }
+
+    public String getLanguage() {
+        // Lógica de Segurança: Se o front não mandar nada, garantimos "en" (inglês)
+        // Isso evita NullPointerException lá no Python
+        return language != null ? language : "en";
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+}
+--- END OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\dto\CodeAnalysisRequest.java ---
+
+--- START OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\dto\CodeAnalysisResponse.java ---
+package com.gdpr.agent.api.gdpr_agent_backend.dto;
+
+public class CodeAnalysisResponse {
+
+    private boolean success;
+    private String message;
+    private String fixedCode;
+    private int codeLength;
+    private int securityScore;
+    private String riskLevel;
+
+    // Construtor Completo (6 argumentos)
+    public CodeAnalysisResponse(boolean success, String message, String fixedCode, int codeLength, int securityScore, String riskLevel) {
+        this.success = success;
+        this.message = message;
+        this.fixedCode = fixedCode;
+        this.codeLength = codeLength;
+        this.securityScore = securityScore;
+        this.riskLevel = riskLevel;
+    }
+
+    // Getters e Setters
+    public boolean isSuccess() { return success; }
+    public String getMessage() { return message; }
+    public String getFixedCode() { return fixedCode; }
+    public int getCodeLength() { return codeLength; }
+    public int getSecurityScore() { return securityScore; }
+    public String getRiskLevel() { return riskLevel; }
+}
+--- END OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\dto\CodeAnalysisResponse.java ---
+
+--- START OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\dto\PythonAgentResponse.java ---
+package com.gdpr.agent.api.gdpr_agent_backend.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
+
+public class PythonAgentResponse {
+    
+    private String status;
+    
+    // Mapeia o campo "markdown_report" do JSON do Python para "summary"
+    @JsonProperty("markdown_report") 
+    private String summary;
+    
+    // Alternativa caso o Python mande como "summary" (retrocompatibilidade)
+    @JsonProperty("summary")
+    private void unpackSummary(String summary) {
+        if (this.summary == null) this.summary = summary;
+    }
+
+    @JsonProperty("fixed_code") 
+    private String fixedCode; 
+
+    @JsonProperty("security_score")
+    private int securityScore;
+
+    @JsonProperty("risk_level")
+    private String riskLevel;
+
+    // Getters e Setters
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    
+    public String getSummary() { return summary; }
+    public void setSummary(String summary) { this.summary = summary; }
+    
+    public String getFixedCode() { return fixedCode; } 
+    public void setFixedCode(String fixedCode) { this.fixedCode = fixedCode; }
+
+    public int getSecurityScore() { return securityScore; }
+    public void setSecurityScore(int securityScore) { this.securityScore = securityScore; }
+
+    public String getRiskLevel() { return riskLevel; }
+    public void setRiskLevel(String riskLevel) { this.riskLevel = riskLevel; }
+}
+--- END OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\dto\PythonAgentResponse.java ---
+
+--- START OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\service\AnalysisService.java ---
+package com.gdpr.agent.api.gdpr_agent_backend.service;
+
+import com.gdpr.agent.api.gdpr_agent_backend.dto.CodeAnalysisRequest;
+import com.gdpr.agent.api.gdpr_agent_backend.dto.CodeAnalysisResponse;
+import com.gdpr.agent.api.gdpr_agent_backend.dto.PythonAgentResponse;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.math.BigInteger;
+
+@Service
+public class AnalysisService {
+
+    private final WebClient webClient;
+    
+    // --- CORREÇÃO DO ERRO ---
+    // Lógica Inteligente:
+    // 1. Se houver uma variável de ambiente PYTHON_URL (Docker), usa ela.
+    // 2. Se não (Teste Local no Windows), usa "http://localhost:5000".
+    private String PYTHON_AGENT_URL = System.getenv("PYTHON_URL") != null 
+                                      ? System.getenv("PYTHON_URL") 
+                                      : "http://localhost:5000"; 
+
+    // Cache em Memória
+    private final Map<String, CodeAnalysisResponse> analysisCache = new ConcurrentHashMap<>();
+
+    public AnalysisService(WebClient.Builder webClientBuilder) {
+        System.out.println("🚀 AnalysisService Iniciado. Conectando na IA em: " + PYTHON_AGENT_URL);
+        this.webClient = webClientBuilder.baseUrl(PYTHON_AGENT_URL).build();
+    }
+
+    public CodeAnalysisResponse analyzeCode(CodeAnalysisRequest request) {
+        String codeHash = generateHash(request.getJavaCode() + request.getLanguage());
+
+        // 1. Verifica Cache
+        if (analysisCache.containsKey(codeHash)) {
+            System.out.println("⚡ CACHE HIT: Retornando análise salva.");
+            return analysisCache.get(codeHash);
+        }
+
+        // 2. Chama Python
+        System.out.println("🐢 CACHE MISS: Chamando " + PYTHON_AGENT_URL + "...");
+
+        try {
+            PythonAgentResponse pythonResponse = webClient.post()
+                    .uri("/analyze/code")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(PythonAgentResponse.class)
+                    .timeout(Duration.ofSeconds(120)) 
+                    .block();
+
+            if (pythonResponse != null) {
+                CodeAnalysisResponse response = new CodeAnalysisResponse(
+                        "success".equals(pythonResponse.getStatus()),
+                        pythonResponse.getSummary(),
+                        pythonResponse.getFixedCode(),
+                        request.getJavaCode().length(),
+                        pythonResponse.getSecurityScore(),
+                        pythonResponse.getRiskLevel() != null ? pythonResponse.getRiskLevel() : "UNKNOWN"
+                );
+
+                if (response.isSuccess()) {
+                    analysisCache.put(codeHash, response);
+                }
+                
+                return response;
+            } else {
+                return new CodeAnalysisResponse(false, "Empty response from AI.", null, 0, 0, "UNKNOWN");
+            }
+
+        } catch (Exception e) {
+            // Loga o erro real no terminal para você ver
+            System.err.println("❌ Erro de Conexão Java->Python: " + e.getMessage());
+            return new CodeAnalysisResponse(false, "System Error: " + e.getMessage(), null, 0, 0, "UNKNOWN");
+        }
+    }
+
+    private String generateHash(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] messageDigest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            return new BigInteger(1, messageDigest).toString(16);
+        } catch (Exception e) {
+            return String.valueOf(input.hashCode());
+        }
+    }
+}
+--- END OF FILE: gdpr-agent-backend\src\main\java\com\gdpr\agent\api\gdpr_agent_backend\service\AnalysisService.java ---
+
+--- START OF FILE: gdpr-agent-backend\src\test\java\com\gdpr\agent\api\gdpr_agent_backend\GdprAgentApiFernandoApplicationTests.java ---
+package com.gdpr.agent.api.gdpr_agent_backend;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class GdprAgentApiFernandoApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
+
+--- END OF FILE: gdpr-agent-backend\src\test\java\com\gdpr\agent\api\gdpr_agent_backend\GdprAgentApiFernandoApplicationTests.java ---
+
+--- START OF FILE: gdpr-agent-frontend\angular.json ---
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "gdpr-agent-frontend": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "src/main.ts",
+            "polyfills": [
+              "zone.js",
+              "@angular/localize/init"
+            ],
+            "tsConfig": "tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              },
+              "src/favicon.svg"
+            ],
+            "styles": [
+              "src/styles.scss"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "gdpr-agent-frontend:build:production"
+            },
+            "development": {
+              "buildTarget": "gdpr-agent-frontend:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "extract-i18n": {
+          "builder": "@angular/build:extract-i18n"
+        },
+        "test": {
+          "builder": "@angular/build:karma",
+          "options": {
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing",
+              "@angular/localize/init"
+            ],
+            "tsConfig": "tsconfig.spec.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              },
+              "src/favicon.svg"
+            ],
+            "styles": [
+              "src/styles.scss"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "cli": {
+    "analytics": false
+  }
+}
+--- END OF FILE: gdpr-agent-frontend\angular.json ---
+
+--- START OF FILE: gdpr-agent-frontend\package.json ---
+{
+  "name": "gdpr-agent-frontend",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "tailwind-init": "tailwindcss"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "singleQuote": true,
+    "overrides": [
+      {
+        "files": "*.html",
+        "options": {
+          "parser": "angular"
+        }
+      }
+    ]
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/common": "^20.3.0",
+    "@angular/compiler": "^20.3.0",
+    "@angular/core": "^20.3.0",
+    "@angular/forms": "^20.3.0",
+    "@angular/platform-browser": "^20.3.0",
+    "@angular/platform-browser-dynamic": "^20.3.12",
+    "@angular/router": "^20.3.0",
+    "@tailwindcss/postcss": "^4.1.17",
+    "ngx-markdown": "^20.1.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^20.3.10",
+    "@angular/cli": "^20.3.10",
+    "@angular/compiler-cli": "^20.3.0",
+    "@angular/localize": "^20.3.12",
+    "@types/jasmine": "~5.1.0",
+    "autoprefixer": "^10.4.22",
+    "jasmine-core": "~5.9.0",
+    "karma": "~6.4.0",
+    "karma-chrome-launcher": "~3.2.0",
+    "karma-coverage": "~2.2.0",
+    "karma-jasmine": "~5.1.0",
+    "karma-jasmine-html-reporter": "~2.1.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.17",
+    "typescript": "~5.9.2"
+  }
+}
+
+--- END OF FILE: gdpr-agent-frontend\package.json ---
+
+--- START OF FILE: gdpr-agent-frontend\README.md ---
+# GdprAgentFrontend
+
+This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.10.
+
+## Development server
+
+To start a local development server, run:
+
+```bash
+ng serve
+```
+
+Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+
+## Code scaffolding
+
+Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+
+```bash
+ng generate component component-name
+```
+
+For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+
+```bash
+ng generate --help
+```
+
+## Building
+
+To build the project run:
+
+```bash
+ng build
+```
+
+This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+
+## Running unit tests
+
+To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+
+```bash
+ng test
+```
+
+## Running end-to-end tests
+
+For end-to-end (e2e) testing, run:
+
+```bash
+ng e2e
+```
+
+Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+
+## Additional Resources
+
+For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+--- END OF FILE: gdpr-agent-frontend\README.md ---
+
+--- START OF FILE: gdpr-agent-frontend\tsconfig.app.json ---
+/* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
+/* To learn more about Angular compiler options: https://angular.dev/reference/configs/angular-compiler-options. */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/app",
+    "types": [
+      "@angular/localize"
+    ]
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts"
+  ]
+}
+
+--- END OF FILE: gdpr-agent-frontend\tsconfig.app.json ---
+
+--- START OF FILE: gdpr-agent-frontend\tsconfig.json ---
+/* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
+/* To learn more about Angular compiler options: https://angular.dev/reference/configs/angular-compiler-options. */
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "ES2022",
+    "module": "preserve"
+  },
+  "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true,
+    "typeCheckHostBindings": true,
+    "strictTemplates": true
+  },
+  "files": [],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ]
+}
+
+--- END OF FILE: gdpr-agent-frontend\tsconfig.json ---
+
+--- START OF FILE: gdpr-agent-frontend\tsconfig.spec.json ---
+/* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
+/* To learn more about Angular compiler options: https://angular.dev/reference/configs/angular-compiler-options. */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/spec",
+    "types": [
+      "jasmine"
+    ]
+  },
+  "include": [
+    "src/**/*.d.ts",
+    "src/**/*.spec.ts"
+  ]
+}
+
+--- END OF FILE: gdpr-agent-frontend\tsconfig.spec.json ---
+
+--- START OF FILE: gdpr-agent-frontend\.gemini\GEMINI.md ---
+You are an expert in TypeScript, Angular, and scalable web application development. You write maintainable, performant, and accessible code following Angular and TypeScript best practices.
+
+## TypeScript Best Practices
+
+- Use strict type checking
+- Prefer type inference when the type is obvious
+- Avoid the `any` type; use `unknown` when type is uncertain
+
+## Angular Best Practices
+
+- Always use standalone components over NgModules
+- Must NOT set `standalone: true` inside Angular decorators. It's the default.
+- Use signals for state management
+- Implement lazy loading for feature routes
+- Do NOT use the `@HostBinding` and `@HostListener` decorators. Put host bindings inside the `host` object of the `@Component` or `@Directive` decorator instead
+- Use `NgOptimizedImage` for all static images.
+  - `NgOptimizedImage` does not work for inline base64 images.
+
+## Components
+
+- Keep components small and focused on a single responsibility
+- Use `input()` and `output()` functions instead of decorators
+- Use `computed()` for derived state
+- Set `changeDetection: ChangeDetectionStrategy.OnPush` in `@Component` decorator
+- Prefer inline templates for small components
+- Prefer Reactive forms instead of Template-driven ones
+- Do NOT use `ngClass`, use `class` bindings instead
+- Do NOT use `ngStyle`, use `style` bindings instead
+
+## State Management
+
+- Use signals for local component state
+- Use `computed()` for derived state
+- Keep state transformations pure and predictable
+- Do NOT use `mutate` on signals, use `update` or `set` instead
+
+## Templates
+
+- Keep templates simple and avoid complex logic
+- Use native control flow (`@if`, `@for`, `@switch`) instead of `*ngIf`, `*ngFor`, `*ngSwitch`
+- Use the async pipe to handle observables
+
+## Services
+
+- Design services around a single responsibility
+- Use the `providedIn: 'root'` option for singleton services
+- Use the `inject()` function instead of constructor injection
+
+--- END OF FILE: gdpr-agent-frontend\.gemini\GEMINI.md ---
+
+--- START OF FILE: gdpr-agent-frontend\.vscode\extensions.json ---
+{
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=827846
+  "recommendations": ["angular.ng-template"]
+}
+
+--- END OF FILE: gdpr-agent-frontend\.vscode\extensions.json ---
+
+--- START OF FILE: gdpr-agent-frontend\.vscode\launch.json ---
+{
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ng serve",
+      "type": "chrome",
+      "request": "launch",
+      "preLaunchTask": "npm: start",
+      "url": "http://localhost:4200/"
+    },
+    {
+      "name": "ng test",
+      "type": "chrome",
+      "request": "launch",
+      "preLaunchTask": "npm: test",
+      "url": "http://localhost:9876/debug.html"
+    }
+  ]
+}
+
+--- END OF FILE: gdpr-agent-frontend\.vscode\launch.json ---
+
+--- START OF FILE: gdpr-agent-frontend\.vscode\tasks.json ---
+{
+  // For more information, visit: https://go.microsoft.com/fwlink/?LinkId=733558
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "start",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "typescript",
+        "pattern": "$tsc",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": {
+            "regexp": "(.*?)"
+          },
+          "endsPattern": {
+            "regexp": "bundle generation complete"
+          }
+        }
+      }
+    },
+    {
+      "type": "npm",
+      "script": "test",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "typescript",
+        "pattern": "$tsc",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": {
+            "regexp": "(.*?)"
+          },
+          "endsPattern": {
+            "regexp": "bundle generation complete"
+          }
+        }
+      }
+    }
+  ]
+}
+
+--- END OF FILE: gdpr-agent-frontend\.vscode\tasks.json ---
+
+--- START OF FILE: gdpr-agent-frontend\src\index.html ---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- Título da Aba Atualizado -->
+  <title>CodeGuard AI - Security Auditor</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <!-- Ícone do Escudo (SVG) -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Fonte Profissional (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- NOVO: Phosphor Icons (para resolver o 404 do jsdelivr) -->
+  <!-- O erro 404 vinha de uma tentativa de carregar este recurso -->
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/assets/css/all.css" />
+
+  <!-- Garante que a fonte Inter seja usada -->
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-gray-50 text-slate-800">
+  <app-root></app-root>
+</body>
+</html>
+--- END OF FILE: gdpr-agent-frontend\src\index.html ---
+
+--- START OF FILE: gdpr-agent-frontend\src\main.ts ---
+import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+import { AppModule } from './app/app.module';
+
+platformBrowserDynamic().bootstrapModule(AppModule)
+  .catch(err => console.error(err));
+--- END OF FILE: gdpr-agent-frontend\src\main.ts ---
+
+--- START OF FILE: gdpr-agent-frontend\src\app\app.component.html ---
+<!-- Carrega o componente do Agente -->
+<app-agent-dashboard></app-agent-dashboard>
+--- END OF FILE: gdpr-agent-frontend\src\app\app.component.html ---
+
+--- START OF FILE: gdpr-agent-frontend\src\app\app.component.ts ---
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html', // Agora aponta para o nome correto
+  styleUrls: ['./app.component.scss'], // Se tiver css, mude para .css
+  standalone: false
+})
+export class AppComponent {
+  title = 'gdpr-agent-frontend';
+}
+--- END OF FILE: gdpr-agent-frontend\src\app\app.component.ts ---
+
+--- START OF FILE: gdpr-agent-frontend\src\app\app.config.ts ---
+import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideBrowserGlobalErrorListeners(),
+    provideZoneChangeDetection({ eventCoalescing: true }),
+    
+  ]
+};
+
+--- END OF FILE: gdpr-agent-frontend\src\app\app.config.ts ---
+
+--- START OF FILE: gdpr-agent-frontend\src\app\app.module.ts ---
+// src/app/app.module.ts
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { HttpClientModule } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
+import { MarkdownModule } from 'ngx-markdown'; // <--- IMPORTANTE
+
+import { AppComponent } from './app.component';
+import { AgentDashboardComponent } from './agent-dashboard/agent-dashboard.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    AgentDashboardComponent // <--- Seu componente declarado aqui
+  ],
+  imports: [
+    BrowserModule,
+    HttpClientModule,
+    FormsModule,
+    MarkdownModule.forRoot() // <--- O Markdown habilitado aqui
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+--- END OF FILE: gdpr-agent-frontend\src\app\app.module.ts ---
+
+--- START OF FILE: gdpr-agent-frontend\src\app\app.spec.ts ---
+import { TestBed } from '@angular/core/testing';
+import { App } from './app';
+
+describe('App', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [App],
+    }).compileComponents();
+  });
+
+  it('should create the app', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    expect(app).toBeTruthy();
+  });
+
+  it('should render title', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, gdpr-agent-frontend');
+  });
+});
+
+--- END OF FILE: gdpr-agent-frontend\src\app\app.spec.ts ---
+
+--- START OF FILE: gdpr-agent-frontend\src\app\agent-dashboard\agent-dashboard.component.html ---
+<div class="flex h-screen bg-gray-100 font-sans text-slate-800 overflow-hidden relative">
+  
+  <!-- MOBILE OVERLAY -->
+  <div *ngIf="isMobileMenuOpen" (click)="toggleMobileMenu()" class="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"></div>
+
+  <!-- SIDEBAR (Enterprise Dark Style) -->
+  <aside [ngClass]="{'translate-x-0': isMobileMenuOpen, '-translate-x-full': !isMobileMenuOpen}" 
+         class="fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col shadow-2xl z-30 transition-transform duration-300 ease-in-out md:relative md:translate-x-0">
+    
+    <!-- LOGO -->
+    <div class="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950 justify-between">
+      <div class="flex items-center gap-3 font-bold text-lg tracking-wider text-white">
+        <!-- Certifique-se de que favicon.svg existe na pasta src -->
+        <img src="favicon.svg" alt="CodeGuard Logo" class="h-8 w-8 drop-shadow-lg">
+        <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-200">
+          CodeGuard AI
+        </span>
+      </div>
+      <!-- Close Button (Mobile) -->
+      <button (click)="toggleMobileMenu()" class="md:hidden text-slate-400 hover:text-white">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- MENU -->
+    <nav class="flex-1 py-6 space-y-1 overflow-y-auto">
+      <a href="#" class="flex items-center px-6 py-3 bg-indigo-600 border-r-4 border-indigo-400 text-white">
+        <span class="mr-3">🔍</span> Audit Dashboard
+      </a>
+      <a href="#" class="flex items-center px-6 py-3 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+        <span class="mr-3">📂</span> Projects
+      </a>
+      <a href="#" class="flex items-center px-6 py-3 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+        <span class="mr-3">📈</span> Compliance Reports
+      </a>
+      <a href="#" class="flex items-center px-6 py-3 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+        <span class="mr-3">⚙️</span> Settings
+      </a>
+    </nav>
+
+    <!-- FOOTER DO DESENVOLVEDOR -->
+    <div class="p-6 border-t border-slate-800 bg-slate-950">
+      <div class="flex flex-col gap-3">
+        
+        <!-- Perfil -->
+        <div class="flex items-center gap-3 mb-1">
+          <div class="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 ring-2 ring-slate-700 flex items-center justify-center text-xs font-bold text-white shadow-lg">
+            FS
+          </div>
+          <div>
+            <p class="text-sm font-bold text-white">Fernando Silva</p>
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Full Stack Engineer</p>
+          </div>
+        </div>
+        
+        <!-- Botões Sociais -->
+        <div class="flex gap-2">
+            <a href="https://github.com/silvatechf" target="_blank" class="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white py-2 rounded text-xs transition-all border border-slate-700 no-underline">
+                <!-- Github Icon -->
+                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                GitHub
+            </a>
+            <a href="https://www.linkedin.com/in/fernando-silva-83b155a4/" target="_blank" class="flex-1 flex items-center justify-center gap-2 bg-blue-900/30 hover:bg-blue-800/50 text-blue-400 hover:text-blue-300 py-2 rounded text-xs transition-all border border-blue-900/50 no-underline">
+                <!-- LinkedIn Icon -->
+                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                LinkedIn
+            </a>
+        </div>
+        <div class="text-[10px] text-slate-600 text-center mt-1">
+           © 2025 CodeGuard AI.
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="flex-1 flex flex-col overflow-hidden w-full">
+    
+    <!-- TOP BAR -->
+    <header class="h-16 bg-white border-b border-gray-200 flex justify-between items-center px-4 md:px-8 shadow-sm z-10">
+      <div class="flex items-center gap-3">
+        <button (click)="toggleMobileMenu()" class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <h2 class="text-lg md:text-xl font-semibold text-gray-800 truncate">Security Audit Dashboard</h2>
+      </div>
+      
+      <div class="flex items-center gap-2 md:gap-4">
+        <span class="hidden md:inline text-xs font-bold text-slate-400 uppercase tracking-wider">Report Language</span>
+        <select (change)="changeLanguage($event)" class="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded px-2 py-1.5 md:px-3 focus:ring-indigo-500 focus:border-indigo-500 outline-none max-w-[120px] md:max-w-none cursor-pointer">
+          <option value="en" selected>🇺🇸 English</option>
+          <option value="pt">🇧🇷 Português</option>
+          <option value="es">🇪🇸 Español</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="it">🇮🇹 Italiano</option>
+          <option value="de">🇩🇪 Deutsch</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- SCROLLABLE AREA -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-100">
+      <div class="max-w-7xl mx-auto flex flex-col gap-8">
+        
+        <!-- EXECUTIVE METRICS (Painel de KPIs) -->
+        <div *ngIf="analysisResult?.success" class="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
+            
+            <!-- Card 1: Security Score -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Security Score</p>
+                <div class="text-3xl font-black" 
+                     [ngClass]="{'text-green-500': securityScore >= 80, 'text-yellow-500': securityScore >= 50 && securityScore < 80, 'text-red-500': securityScore < 50}">
+                    {{ securityScore }}/100
+                </div>
+            </div>
+
+            <!-- Card 2: Risk Level -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Risk Level</p>
+                <div class="px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide"
+                     [ngClass]="{
+                        'bg-green-100 text-green-700': riskLevel === 'LOW',
+                        'bg-yellow-100 text-yellow-700': riskLevel === 'MEDIUM',
+                        'bg-orange-100 text-orange-700': riskLevel === 'HIGH',
+                        'bg-red-100 text-red-700': riskLevel === 'CRITICAL'
+                     }">
+                    {{ riskLevel }}
+                </div>
+            </div>
+
+            <!-- Card 3: Issues Found -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Issues Detected</p>
+                <div class="text-3xl font-bold text-slate-700">{{ issuesCount }}</div>
+            </div>
+
+            <!-- Card 4: GDPR Status -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">GDPR Status</p>
+                <div class="flex items-center gap-2" [ngClass]="gdprStatus === 'COMPLIANT' ? 'text-green-600' : 'text-red-600'">
+                    <svg *ngIf="gdprStatus === 'COMPLIANT'" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <svg *ngIf="gdprStatus !== 'COMPLIANT'" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    <span class="font-bold text-sm">{{ gdprStatus }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+            
+            <!-- LEFT COLUMN: Code Editor -->
+            <div class="lg:col-span-7 flex flex-col gap-4 order-1">
+                <div class="flex justify-between items-end flex-wrap gap-2">
+                    <label class="text-sm font-bold text-slate-600 uppercase tracking-wider">Source Code Target</label>
+                    <button (click)="fillExampleCode()" class="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded transition-colors border border-indigo-200">
+                    <span>⚡ Load Vulnerability Demo</span>
+                    </button>
+                </div>
+                
+                <div *ngIf="currentDemoLabel" class="text-xs bg-slate-800 text-cyan-400 px-3 py-1.5 rounded-t-md font-mono border-b border-slate-700 flex items-center gap-2 overflow-hidden">
+                    <span class="whitespace-nowrap">📝 Template:</span>
+                    <span class="font-bold truncate">{{ currentDemoLabel }}</span>
+                </div>
+
+                <div class="relative group h-[400px] md:h-[600px]">
+                    <textarea 
+                    [(ngModel)]="javaCode"
+                    class="w-full h-full p-4 bg-[#1e293b] text-slate-300 font-mono text-sm rounded-b-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-0 shadow-inner resize-none leading-relaxed custom-scrollbar"
+                    placeholder="// Paste Java, Python, JS or Terraform code here..."
+                    spellcheck="false"
+                    ></textarea>
+                    
+                    <div class="absolute bottom-4 right-4 md:bottom-6 md:right-6">
+                    <button 
+                        (click)="analyzeCode()" 
+                        [disabled]="isLoading"
+                        class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-5 rounded-full shadow-lg transform hover:scale-105 transition-all disabled:bg-slate-500 disabled:cursor-not-allowed text-sm md:text-base"
+                    >
+                        <svg *ngIf="!isLoading" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <svg *ngIf="isLoading" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {{ isLoading ? 'Running Analysis...' : 'Run Audit' }}
+                    </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Findings & Fixes (TABS) -->
+            <div class="lg:col-span-5 order-2">
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm h-[500px] md:h-[640px] flex flex-col overflow-hidden">
+                    
+                    <!-- TABS HEADER -->
+                    <div class="bg-slate-50 border-b border-slate-200 flex">
+                        <!-- Aba Report -->
+                        <button (click)="setActiveTab('report')" 
+                            class="flex-1 py-4 text-sm font-bold text-center border-b-2 transition-colors flex items-center justify-center gap-2"
+                            [ngClass]="activeTab === 'report' ? 'border-indigo-600 text-indigo-700 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Findings
+                        </button>
+                        
+                        <!-- Aba Fixed Code -->
+                        <button (click)="setActiveTab('fixed')" 
+                            [disabled]="!analysisResult?.success"
+                            class="flex-1 py-4 text-sm font-bold text-center border-b-2 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            [ngClass]="activeTab === 'fixed' ? 'border-green-500 text-green-700 bg-white' : 'border-transparent text-slate-500 hover:text-green-600 hover:bg-green-50'">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                            </svg>
+                            ✨ Fixed Code
+                        </button>
+                    </div>
+
+                    <!-- CONTEÚDO ROLÁVEL -->
+                    <div class="flex-1 p-4 md:p-6 overflow-y-auto bg-white custom-scrollbar relative">
+                        
+                        <!-- Empty State -->
+                        <div *ngIf="!analysisResult && !isLoading" class="h-full flex flex-col items-center justify-center text-center opacity-60">
+                            <div class="bg-slate-100 p-4 rounded-full mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+                            <p class="text-sm text-slate-500">Run scan to generate report and fixes.</p>
+                        </div>
+
+                        <!-- Loading -->
+                        <div *ngIf="isLoading" class="space-y-4 animate-pulse py-4">
+                            <div class="h-4 bg-slate-100 rounded w-3/4"></div>
+                            <div class="h-32 bg-slate-50 rounded border border-slate-100 mt-2"></div>
+                        </div>
+
+                        <!-- CONTEÚDO ABA 1: REPORT -->
+                        <div *ngIf="analysisResult && activeTab === 'report'" class="prose prose-sm prose-slate max-w-none animate-fade-in">
+                            <div class="flex justify-end mb-2">
+                                <button (click)="copyReport()" class="text-xs text-indigo-600 hover:underline flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                                    Copy Report
+                                </button>
+                            </div>
+                            <markdown class="markdown-body" [data]="analysisResult.message"></markdown>
+                        </div>
+
+                        <!-- CONTEÚDO ABA 2: FIXED CODE -->
+                        <div *ngIf="analysisResult && activeTab === 'fixed'" class="animate-fade-in h-full flex flex-col">
+                            <div class="bg-green-50 border border-green-200 rounded-md p-3 mb-4 text-xs text-green-800 flex gap-2">
+                                <span>✅</span>
+                                <span><strong>Auto-Remediation Applied:</strong> The AI has refactored the code to comply with GDPR & Cloud Security standards. Review before merging.</span>
+                            </div>
+                            
+                            <textarea readonly class="w-full flex-1 bg-[#0f172a] text-green-400 font-mono text-sm p-4 rounded-md resize-none custom-scrollbar focus:outline-none border border-slate-700" [value]="analysisResult.fixedCode || '// No fix generated.'"></textarea>
+                            
+                            <button (click)="copyReport()" class="mt-3 w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded text-xs transition-colors flex items-center justify-center gap-2 border border-slate-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                                Copy Fixed Code
+                            </button>
+                        </div>
+
+                    </div>
+                    
+                    <div class="p-3 border-t border-slate-100 bg-slate-50 text-[10px] text-center text-slate-400">
+                        Powered by Google Gemini 2.0
+                    </div>
+                </div>
+            </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+--- END OF FILE: gdpr-agent-frontend\src\app\agent-dashboard\agent-dashboard.component.html ---
+
+--- START OF FILE: gdpr-agent-frontend\src\app\agent-dashboard\agent-dashboard.component.ts ---
+import { Component } from '@angular/core';
+import { AnalysisService, CodeAnalysisResponse } from '../analysis/analysis.service';
+
+@Component({
+  selector: 'app-agent-dashboard',
+  templateUrl: './agent-dashboard.component.html',
+  styleUrls: ['./agent-dashboard.component.scss'],
+  standalone: false
+})
+export class AgentDashboardComponent {
+  
+  // Estados
+  javaCode: string = '';
+  selectedLanguage: string = 'en'; 
+  analysisResult: CodeAnalysisResponse | null = null;
+  isLoading: boolean = false;
+  isMobileMenuOpen: boolean = false;
+  activeTab: 'report' | 'fixed' = 'report';
+  currentDemoLabel: string = '';
+  private exampleIndex: number = 0;
+
+  // Métricas (Iniciam zeradas) - ADICIONADAS AQUI PARA CORRIGIR O ERRO
+  securityScore: number = 0;
+  riskLevel: string = '-';
+  gdprStatus: string = '-';
+  issuesCount: number = 0;
+
+  constructor(private analysisService: AnalysisService) {}
+
+  setActiveTab(tab: 'report' | 'fixed'): void { this.activeTab = tab; }
+  toggleMobileMenu(): void { this.isMobileMenuOpen = !this.isMobileMenuOpen; }
+
+  fillExampleCode(): void {
+    const examples = [
+      {
+        label: "Java (Spring Boot) - Cloud & Log Risk",
+        code: `@RestController
+@RequestMapping("/api/payments")
+public class PaymentController {
+    // 🚨 CLOUD RISK: Hardcoded AWS Credentials
+    // This violates cloud security best practices
+    private String awsAccessKey = "AKIA1234567890EXAMPLE"; 
+
+    @GetMapping("/pay/{userId}")
+    public String process(@PathVariable String userId) {
+        // 🚨 GDPR RISK: Logging PII (User ID) directly
+        System.out.println("Processing sensitive user: " + userId); 
+        return "Payment Processed";
+    }
+}`
+      },
+      {
+        label: "Node.js (Express) - SQL Injection",
+        code: `const express = require('express');
+const app = express();
+
+app.post('/login', (req, res) => {
+  const { email, password } = req.body;
+  
+  // 🚨 SECURITY RISK: SQL Injection Vulnerability
+  // Direct concatenation of user input into query
+  const query = "SELECT * FROM users WHERE email = '" + email + "'";
+  
+  console.log("Executing: " + query); // PII Leak in logs
+  db.execute(query);
+});`
+      },
+      {
+        label: "Python (Data Science) - S3 Data Leak",
+        code: `import pandas as pd
+import boto3
+
+def export_eu_customers():
+    # Loading sensitive customer data
+    df = pd.read_csv("eu_customers_database.csv")
+    
+    # 🚨 GDPR & SOVEREIGNTY RISK: 
+    # Sending EU Citizen data to a Public Bucket in the US
+    # This violates data residency laws
+    df.to_csv("s3://public-bucket-us-east-1/backup.csv")
+    
+    print("Backup completed to Public Cloud")`
+      }
+    ];
+
+    // 1. Pega o exemplo baseado no índice atual
+    const currentExample = examples[this.exampleIndex];
+    
+    // 2. Atualiza a tela
+    this.javaCode = currentExample.code;
+    this.currentDemoLabel = currentExample.label; 
+    
+    // Fecha o menu mobile se estiver aberto (Melhoria de UX)
+    this.isMobileMenuOpen = false;
+
+    // 3. Prepara o índice para o próximo clique (0 -> 1 -> 2 -> 0...)
+    this.exampleIndex = (this.exampleIndex + 1) % examples.length;
+  }
+
+  analyzeCode(): void {
+    if (!this.javaCode) return;
+
+    this.isLoading = true;
+    this.analysisResult = null; 
+    this.activeTab = 'report';
+    
+    // Reset Metrics while loading
+    this.securityScore = 0;
+    this.issuesCount = 0;
+    this.riskLevel = '-';
+    this.gdprStatus = '-';
+    
+    this.analysisService.analyzeCode({ 
+      javaCode: this.javaCode,
+      language: this.selectedLanguage 
+    }).subscribe({
+      next: (response) => {
+        this.analysisResult = response;
+        this.isLoading = false;
+        
+        if (response.success) {
+            // AQUI ESTÁ A CORREÇÃO FINAL:
+            // Lemos direto do backend. Não calculamos nada.
+            this.securityScore = response.securityScore; 
+            this.riskLevel = response.riskLevel;
+            
+            // Lógica visual simples
+            this.gdprStatus = this.securityScore < 80 ? 'NON-COMPLIANT' : 'COMPLIANT';
+            this.issuesCount = Math.max(1, Math.round((100 - this.securityScore) / 15));
+        }
+      },
+      error: (err) => {
+        this.isLoading = false;
+        this.analysisResult = { 
+            success: false, 
+            message: '### System Error\nConnection failed.', 
+            fixedCode: '', codeLength: 0, securityScore: 0, riskLevel: 'ERROR' 
+        };
+      }
+    });
+  }
+
+  copyReport(): void {
+    const textToCopy = this.activeTab === 'report' 
+      ? this.analysisResult?.message 
+      : this.analysisResult?.fixedCode;
+
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        alert('Content copied to clipboard!'); 
+      });
+    }
+  }
+  
+  changeLanguage(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.selectedLanguage = target.value;
+  }
+}
+--- END OF FILE: gdpr-agent-frontend\src\app\agent-dashboard\agent-dashboard.component.ts ---
+
+--- START OF FILE: gdpr-agent-frontend\src\app\analysis\analysis.service.ts ---
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+export interface CodeAnalysisRequest {
+  javaCode: string;
+  language?: string;
+}
+
+export interface CodeAnalysisResponse {
+  success: boolean;
+  message: string;
+  fixedCode?: string;
+  codeLength: number;
+  securityScore: number;
+  riskLevel: string;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AnalysisService {
+
+  // URL RELATIVA: O Nginx vai interceptar isso.
+  // Não coloque 'http://localhost:8080' aqui!
+  private apiUrl = '/api/v1/analysis/submit';
+
+  constructor(private http: HttpClient) { }
+
+  analyzeCode(codeRequest: CodeAnalysisRequest): Observable<CodeAnalysisResponse> {
+    console.log("Sending analysis request to Proxy:", this.apiUrl);
+    return this.http.post<CodeAnalysisResponse>(this.apiUrl, codeRequest);
+  }
+}
+--- END OF FILE: gdpr-agent-frontend\src\app\analysis\analysis.service.ts ---
+
