@@ -1,8 +1,10 @@
-🛡️ CodeGuard AI - Intelligent Security Auditor
+# 🛡️ CodeGuard AI - Intelligent Security Auditor
 
 "Automating Compliance & Security for Modern DevSecOps Pipelines"
 
 CodeGuard AI is an enterprise-grade security tool designed to detect GDPR violations, Cloud Security risks, and PII leaks directly in the source code. Powered by Google's Gemini 2.0 Flash LLM, it acts as a Senior Security Auditor, providing context-aware analysis and auto-remediation code fixes.
+
+![Print screen init (screen init)](assets/Screenshot1.png)
 
 🚀 Key Features
 
@@ -13,6 +15,7 @@ Unlike traditional regex-based scanners (SAST), CodeGuard understands the intent
 False Positive Reduction: Distinguishes between a variable named password and an actual hardcoded credential.
 
 Multi-Language Support: Analyzes Java, Python, Node.js, Terraform, and more.
+![Print screen init (screen init)](assets/Screenshot2.png)
 
 🇪🇺 GDPR & Privacy Specialist
 
@@ -23,6 +26,7 @@ Data Minimization: Detects unnecessary logging of PII (User IDs, Emails, NIFs et
 Data Sovereignty: Flags cloud configurations (AWS/Azure) that export data outside the EU.
 
 ✨ Magic Fix (Auto-Remediation)
+![Print screen init (screen init)](assets/Screenshot3.png)
 
 Don't just find the bug—fix it.
 
@@ -83,9 +87,6 @@ git clone [https://github.com/silvatechf/codeguard-ai.git](https://github.com/si
 cd codeguard-ai
 
 
-📸 Screenshots
-
-(Add your screenshots here in the repository assets folder)
 
 "The dashboard provides a clear, actionable report for non-technical auditors, bridging the gap between Legal (DPO) and Engineering."
 
@@ -103,5 +104,7 @@ Secure Transport: All internal communication is designed to run within a private
 
 Fernando Silva
 Software Engineer | Java & Angular Specialist | AI Enthusiast
+
+LINKEDIN https://www.linkedin.com/in/fernando-silva-83b155a4/
 
 © 2025 CodeGuard AI. All rights reserved.
