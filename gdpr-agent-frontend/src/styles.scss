@@ -1,0 +1,104 @@
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1; 
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; 
+}
+
+/* 2. ESTILIZAÇÃO FORÇADA DO MARKDOWN (.markdown-body)
+    Necessário porque o Tailwind reseta os estilos padrão (negrito, listas, h1, etc).
+    Aqui forçamos eles de volta para o relatório da IA ficar legível.
+*/
+.markdown-body {
+  font-family: 'Inter', sans-serif;
+  color: #334155;
+  font-size: 0.95rem;
+  line-height: 1.7;
+
+  /* Títulos */
+  h1, h2, h3, h4 {
+    color: #1e293b;
+    font-weight: 700 !important;
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    display: block;
+  }
+  
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3em; }
+  h3 { font-size: 1.1rem; }
+
+  /* Negrito */
+  strong {
+    color: #0f172a;
+    font-weight: 700 !important;
+  }
+
+  /* Listas (Bolinhas e Números) */
+  ul, ol {
+    list-style-type: disc !important; 
+    margin-left: 1.5rem !important;
+    margin-bottom: 1em;
+    padding-left: 1rem;
+  }
+  
+  li {
+    margin-bottom: 0.5em;
+    /* Garante que o Angular ou Tailwind não esconda os bullet points */
+    display: list-item !important; 
+  }
+
+  /* Bloco de Código (Caixa Escura) */
+  pre {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 1.5em 0;
+    border: 1px solid #334155;
+    font-family: 'Consolas', monospace;
+  }
+
+  /* Texto dentro do bloco */
+  pre code {
+    background-color: transparent !important;
+    color: inherit !important;
+    padding: 0;
+    font-size: 0.85em;
+    font-family: inherit;
+  }
+
+  /* Código Inline (destaque vermelho claro) */
+  :not(pre) > code {
+    background-color: #f1f5f9;
+    color: #ef4444;
+    padding: 0.2em 0.4em;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.9em;
+    font-weight: 600;
+    border: 1px solid #e2e8f0;
+  }
+  
+  p {
+    margin-bottom: 1em;
+  }
+
+  a {
+    color: #3b82f6;
+    text-decoration: underline;
+  }
+}
