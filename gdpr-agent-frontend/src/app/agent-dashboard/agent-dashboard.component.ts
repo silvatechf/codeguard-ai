@@ -8,8 +8,6 @@ import { AnalysisService, CodeAnalysisResponse } from '../analysis/analysis.serv
   standalone: false
 })
 export class AgentDashboardComponent {
-  
-  // Estados
   javaCode: string = '';
   selectedLanguage: string = 'en'; 
   analysisResult: CodeAnalysisResponse | null = null;
@@ -19,7 +17,7 @@ export class AgentDashboardComponent {
   currentDemoLabel: string = '';
   private exampleIndex: number = 0;
 
-  // Métricas (Iniciam zeradas) - ADICIONADAS AQUI PARA CORRIGIR O ERRO
+  // Métricas extraídas diretamente do payload real
   securityScore: number = 0;
   riskLevel: string = '-';
   gdprStatus: string = '-';
@@ -34,66 +32,22 @@ export class AgentDashboardComponent {
     const examples = [
       {
         label: "Java (Spring Boot) - Cloud & Log Risk",
-        code: `@RestController
-@RequestMapping("/api/payments")
-public class PaymentController {
-    // 🚨 CLOUD RISK: Hardcoded AWS Credentials
-    // This violates cloud security best practices
-    private String awsAccessKey = "AKIA1234567890EXAMPLE"; 
-
-    @GetMapping("/pay/{userId}")
-    public String process(@PathVariable String userId) {
-        // 🚨 GDPR RISK: Logging PII (User ID) directly
-        System.out.println("Processing sensitive user: " + userId); 
-        return "Payment Processed";
-    }
-}`
+        code: `@RestController\n@RequestMapping("/api/payments")\npublic class PaymentController {\n    private String awsAccessKey = "AKIA1234567890EXAMPLE";\n\n    @GetMapping("/pay/{userId}")\n    public String process(@PathVariable String userId) {\n        System.out.println("Processing sensitive user: " + userId);\n        return "Payment Processed";\n    }\n}`
       },
       {
         label: "Node.js (Express) - SQL Injection",
-        code: `const express = require('express');
-const app = express();
-
-app.post('/login', (req, res) => {
-  const { email, password } = req.body;
-  
-  // 🚨 SECURITY RISK: SQL Injection Vulnerability
-  // Direct concatenation of user input into query
-  const query = "SELECT * FROM users WHERE email = '" + email + "'";
-  
-  console.log("Executing: " + query); // PII Leak in logs
-  db.execute(query);
-});`
+        code: `const express = require('express');\nconst app = express();\n\napp.post('/login', (req, res) => {\n  const { email, password } = req.body;\n  const query = "SELECT * FROM users WHERE email = '" + email + "'";\n  db.execute(query);\n});`
       },
       {
         label: "Python (Data Science) - S3 Data Leak",
-        code: `import pandas as pd
-import boto3
-
-def export_eu_customers():
-    # Loading sensitive customer data
-    df = pd.read_csv("eu_customers_database.csv")
-    
-    # 🚨 GDPR & SOVEREIGNTY RISK: 
-    # Sending EU Citizen data to a Public Bucket in the US
-    # This violates data residency laws
-    df.to_csv("s3://public-bucket-us-east-1/backup.csv")
-    
-    print("Backup completed to Public Cloud")`
+        code: `import pandas as pd\nimport boto3\n\ndef export_eu_customers():\n    df = pd.read_csv("eu_customers_database.csv")\n    df.to_csv("s3://public-bucket-us-east-1/backup.csv")`
       }
     ];
 
-    // 1. Pega o exemplo baseado no índice atual
     const currentExample = examples[this.exampleIndex];
-    
-    // 2. Atualiza a tela
     this.javaCode = currentExample.code;
     this.currentDemoLabel = currentExample.label; 
-    
-    // Fecha o menu mobile se estiver aberto (Melhoria de UX)
     this.isMobileMenuOpen = false;
-
-    // 3. Prepara o índice para o próximo clique (0 -> 1 -> 2 -> 0...)
     this.exampleIndex = (this.exampleIndex + 1) % examples.length;
   }
 
@@ -104,7 +58,6 @@ def export_eu_customers():
     this.analysisResult = null; 
     this.activeTab = 'report';
     
-    // Reset Metrics while loading
     this.securityScore = 0;
     this.issuesCount = 0;
     this.riskLevel = '-';
@@ -119,22 +72,19 @@ def export_eu_customers():
         this.isLoading = false;
         
         if (response.success) {
-            // AQUI ESTÁ A CORREÇÃO FINAL:
-            // Lemos direto do backend. Não calculamos nada.
-            this.securityScore = response.securityScore; 
-            this.riskLevel = response.riskLevel;
-            
-            // Lógica visual simples
-            this.gdprStatus = this.securityScore < 80 ? 'NON-COMPLIANT' : 'COMPLIANT';
-            this.issuesCount = Math.max(1, Math.round((100 - this.securityScore) / 15));
+          // PROIBIDO CALCULAR NO FRONT: Mapeamento direto de propriedades reais do contrato
+          this.securityScore = response.securityScore; 
+          this.riskLevel = response.riskLevel;
+          this.gdprStatus = response.gdprStatus;
+          this.issuesCount = response.issuesCount;
         }
       },
       error: (err) => {
         this.isLoading = false;
         this.analysisResult = { 
-            success: false, 
-            message: '### System Error\nConnection failed.', 
-            fixedCode: '', codeLength: 0, securityScore: 0, riskLevel: 'ERROR' 
+          success: false, 
+          message: '### System Error\nConnection to unified Django backend failed.', 
+          fixedCode: '', codeLength: 0, securityScore: 0, riskLevel: 'ERROR', gdprStatus: 'ERROR', issuesCount: 0
         };
       }
     });
