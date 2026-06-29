@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Unificado: Substitui o antigo Java Spring Boot + Python Flask pelo ecossistema Django 5+
   backend:
     build:
       context: ./codeguard_backend
@@ -15,7 +14,6 @@ services:
     networks:
       - codeguard-network
 
-  # Frontend: Mantém a distribuição SPA de alta fidelidade
   frontend:
     build:
       context: ./gdpr-agent-frontend
