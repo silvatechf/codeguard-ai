@@ -10,9 +10,15 @@
 *.pem
 secrets.json
 
+# Local databases and generated runtime state
+*.db
+*.sqlite
+*.sqlite3
+project_context_for_ai.txt
+
 ===========================
 
-pycache/
+__pycache__/
 *.py[cod]
 *$py.class
 venv/
@@ -31,11 +37,8 @@ target/
 *.ear
 .mvn/wrapper/maven-wrapper.properties
 
-
 .mvn/
-
 mvnw
-
 mvnw.cmd
 
 ===========================
@@ -50,7 +53,6 @@ lib/
 npm-debug.log
 yarn-error.log
 testem.log
-
 
 .idea/
 .vscode/
